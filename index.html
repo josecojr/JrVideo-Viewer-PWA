@@ -52,8 +52,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,sans-serif
 .folder:active{transform:scale(.98)}
 .fstack{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#0A84FF,#7D4DFF);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
 .fmeta{flex:1}.fmeta b{font-size:16px}.fmeta p{font-size:12px;color:#999}
-.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px 18px;overflow-y:auto}
-.thumb{aspect-ratio:9/13;border-radius:12px;background:#1c1c1e;position:relative;overflow:hidden;cursor:pointer;border:2px solid transparent}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 18px 90px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;align-content:start}
+.thumb{aspect-ratio:16/10;border-radius:14px;background:#1c1c1e;position:relative;overflow:hidden;cursor:pointer;border:2px solid transparent;min-height:0}
 .thumb.sel{border-color:#0A84FF}
 .thumb .img{position:absolute;inset:0;background:linear-gradient(180deg,#333,#111) center/cover;display:flex;align-items:center;justify-content:center;font-size:30px}
 .thumb .dur{position:absolute;bottom:22px;right:6px;background:rgba(0,0,0,.75);font-size:10px;padding:2px 6px;border-radius:6px}
@@ -104,6 +104,8 @@ input[type=range]{flex:1;accent-color:#0A84FF;height:22px}
 #loading .spin{width:52px;height:52px;border-radius:50%;border:5px solid rgba(255,255,255,.18);border-top-color:#0A84FF;animation:spin 0.9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 #loading b{font-size:18px}#loading p{color:#aaa;font-size:14px}
+#loadBar{width:min(300px,70vw);height:8px;border-radius:5px;background:#2c2c30;overflow:hidden}
+#loadFill{height:100%;width:0%;border-radius:5px;background:linear-gradient(90deg,#0A84FF,#5E5CE6);transition:width .2s}
 @media (orientation:landscape){
  .overlay{top:16%}
  .ctrl{background:rgba(0,0,0,.05);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border:1px solid transparent;border-radius:20px;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom, 0px) + 8px)}
@@ -173,7 +175,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <button class="del" onclick="bulk('deletar')">Apagar</button>
 <button class="del" onclick="emptyTrash()">Esvaziar</button>
 </div>
-<div id="loading"><div class="spin"></div><b>Carregando arquivos…</b><p id="loadTxt">Aguarde o término</p></div>
+<div id="loading"><div class="spin"></div><b id="loadTitle">Carregando arquivos…</b><div id="loadBar"><div id="loadFill"></div></div><p id="loadTxt">Aguarde o término</p></div>
 <div class="sheet" id="sheet">
 <h3 id="sheetT">Mover para...</h3>
 <div id="sheetFolders"></div>
@@ -246,7 +248,11 @@ function openTrash(){curFolder={id:'trash',name:'Lixeira',videos:TRASH};selMode=
 // Visao organizada: grade/lista + ordenacao + filtro
 let viewMode=localStorage.getItem('jrvideo.view')||'grid';
 let sortMode=localStorage.getItem('jrvideo.sort')||'recent';
-function setSort(v){sortMode=v;try{localStorage.setItem('jrvideo.sort',v);}catch(_){}renderGrid();}
+// Aguarde com andamento conforme contexto
+function showLoad(title,txt,frac){document.getElementById('loadTitle').textContent=title||'Aguarde…';document.getElementById('loadTxt').textContent=txt||'Aguarde o término';document.getElementById('loadFill').style.width=Math.round((frac||0)*100)+'%';document.getElementById('loading').classList.add('open');}
+function loadProg(txt,frac){document.getElementById('loadTxt').textContent=txt;document.getElementById('loadFill').style.width=Math.round(frac*100)+'%';}
+function hideLoad(){document.getElementById('loading').classList.remove('open');}
+function setSort(v){sortMode=v;try{localStorage.setItem('jrvideo.sort',v);}catch(_){}showLoad('Ordenando…','Aguarde o término',0.3);setTimeout(()=>{renderGrid();loadProg('Concluído',1);setTimeout(hideLoad,250);},60);}
 function toggleView(){viewMode=viewMode==='grid'?'list':'grid';try{localStorage.setItem('jrvideo.view',viewMode);}catch(_){}syncViewBtn();renderGrid();}
 function syncViewBtn(){const b=document.getElementById('viewBtn');if(b)b.textContent=viewMode==='grid'?'☰ Lista':'⊞ Grade';const s=document.getElementById('sortSel');if(s)s.value=sortMode;}
 function durSec(d){if(!d||d==='--:--')return -1;const p=String(d).split(':');if(p.length===2)return (+p[0])*60+(+p[1]);if(p.length===3)return (+p[0])*3600+(+p[1])*60+(+p[2]);return -1;}
@@ -293,15 +299,19 @@ async function bulk(a){
   const tot=TRASH.filter((_,i)=>sel.has(i)).reduce((s,v)=>s+(v.sz||0),0);
   if(!confirm(`Apagar definitivo ${sel.size} da lixeira?${tot?' ≈ '+mb(tot)+' liberados do aparelho.':''}`))return;
   const idxs=[...sel].sort((x,y)=>y-x);
-  for(const i of idxs){const v=TRASH[i];await idbDel('trash',v.tid);if(v.fid)await idbDel('files',v.fid);TRASH.splice(i,1);}
-  sel.clear();curFolder.videos=TRASH;renderGrid();renderFolders();updateToolbar();
+  showLoad('Apagando definitivo…','Aguarde o término',0);
+  for(let k=0;k<idxs.length;k++){const i=idxs[k];const v=TRASH[i];loadProg(`Arquivo ${k+1} de ${idxs.length} — ${v.n} — Aguarde o término`,(k+1)/idxs.length);await idbDel('trash',v.tid);if(v.fid)await idbDel('files',v.fid);TRASH.splice(i,1);}
+  sel.clear();curFolder.videos=TRASH;renderGrid();renderFolders();updateToolbar();hideLoad();
   alert(tot?`Apagado permanente. ≈ ${mb(tot)} liberados.`:'Apagado permanente.');
   return;
  }
  if(a==='deletar'&&confirm(`Mover ${sel.size} para a Lixeira?`)){
   const idxs=[...sel].sort((x,y)=>y-x);
-  for(const i of idxs){
+  showLoad('Movendo para a Lixeira…','Aguarde o término',0);
+  for(let k=0;k<idxs.length;k++){
+   const i=idxs[k];
    const v=curFolder.videos[i];
+   loadProg(`Arquivo ${k+1} de ${idxs.length} — ${v.n} — Aguarde o término`,(k+1)/idxs.length);
    const sz=v.sz||(v.file?v.file.size||0:0);
    const rec={tid:'t'+Date.now()+Math.floor(Math.random()*1e6),fid:v.fid||null,name:v.n,d:v.d,src:v.file?null:v.src,fromId:curFolder.id,at:Date.now(),hasBlob:!!v.file,sz:sz};
    if(v.file){await idbPut('files',{fid:v.fid,blob:v.file,name:v.n,d:v.d,keep:true,size:sz});}
@@ -309,27 +319,31 @@ async function bulk(a){
    TRASH.unshift({tid:rec.tid,fid:rec.fid,n:rec.name,d:rec.d,src:rec.src||v.src,e:v.e||'🎥',file:v.file||null,fromId:rec.fromId,sz:sz});
   }
   curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));
-  sel.clear();renderGrid();renderFolders();updateToolbar();
+  sel.clear();renderGrid();renderFolders();updateToolbar();hideLoad();
  }
 }
 async function restoreSel(){
  if(!sel.size)return alert('Selecione 1+ na lixeira');
  const idxs=[...sel].sort((x,y)=>y-x);
- for(const i of idxs){
+ showLoad('Restaurando…','Aguarde o término',0);
+ for(let k=0;k<idxs.length;k++){
+  const i=idxs[k];
   const v=TRASH[i];
+  loadProg(`Arquivo ${k+1} de ${idxs.length} — ${v.n} — Aguarde o término`,(k+1)/idxs.length);
   const dest=DB.find(f=>f.id===v.fromId)||DB.find(f=>f.id==='f0')||DB[0];
   dest.videos.push({n:v.n,d:v.d,src:v.src,e:'🎥',file:v.file||null,fid:v.fid||null,sz:v.sz||0});
   await idbDel('trash',v.tid);TRASH.splice(i,1);
  }
- sel.clear();curFolder.videos=TRASH;renderGrid();renderFolders();updateToolbar();alert('Restaurado!');
+ sel.clear();curFolder.videos=TRASH;renderGrid();renderFolders();updateToolbar();hideLoad();alert('Restaurado!');
 }
 async function emptyTrash(){
  if(!TRASH.length)return alert('Lixeira vazia');
  const tot=trashMB();
  if(!confirm(`Esvaziar lixeira (${TRASH.length})?${tot?' ≈ '+mb(tot)+' liberados do aparelho.':''} Não dá para desfazer.`))return;
- for(const v of TRASH){await idbDel('trash',v.tid);if(v.fid)await idbDel('files',v.fid);}
+ showLoad('Esvaziando lixeira…','Aguarde o término',0);
+ for(let k=0;k<TRASH.length;k++){const v=TRASH[k];loadProg(`Arquivo ${k+1} de ${TRASH.length} — Aguarde o término`,(k+1)/TRASH.length);await idbDel('trash',v.tid);if(v.fid)await idbDel('files',v.fid);}
  TRASH=[];sel.clear();if(isTrash()){curFolder.videos=[];renderGrid();}
- renderFolders();updateToolbar();
+ renderFolders();updateToolbar();hideLoad();
  alert(tot?`Lixeira esvaziada. ≈ ${mb(tot)} liberados.`:'Lixeira esvaziada.');
 }
 function openOriginals(){
@@ -363,7 +377,7 @@ async function bootTrash(){ try{
  }catch(_){}
  renderFolders();
 }
-function openSheet(a){if(!sel.size)return alert('Selecione 1+ arquivo');document.getElementById('sheetT').textContent=a+' '+sel.size+' arquivo(s) para...';const sf=document.getElementById('sheetFolders');sf.innerHTML='';DB.filter(f=>f!==curFolder).forEach(f=>{const b=document.createElement('button');b.style.background='#0A84FF';b.style.color='#fff';b.textContent='📁 '+f.name;b.onclick=()=>{const mv=document.getElementById('sheetT').textContent.startsWith('Mover');const items=[...sel].sort((x,y)=>y-x).map(i=>curFolder.videos[i]);if(mv)curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));items.reverse().forEach(v=>f.videos.push(v));sel.clear();closeSheet();toggleSelMode();renderFolders();alert('Concluído!');};sf.appendChild(b);});document.getElementById('sheet').classList.add('open');}
+function openSheet(a){if(!sel.size)return alert('Selecione 1+ arquivo');document.getElementById('sheetT').textContent=a+' '+sel.size+' arquivo(s) para...';const sf=document.getElementById('sheetFolders');sf.innerHTML='';DB.filter(f=>f!==curFolder).forEach(f=>{const b=document.createElement('button');b.style.background='#0A84FF';b.style.color='#fff';b.textContent='📁 '+f.name;b.onclick=async()=>{const mv=document.getElementById('sheetT').textContent.startsWith('Mover');const idxs=[...sel].sort((x,y)=>y-x);showLoad(mv?'Movendo…':'Copiando…','Aguarde o término',0);const items=idxs.map(i=>curFolder.videos[i]);for(let k=0;k<items.length;k++){loadProg(`Arquivo ${k+1} de ${items.length} — ${items[k].n} — Aguarde o término`,(k+1)/items.length);await new Promise(r=>setTimeout(r,30));}if(mv)curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));items.reverse().forEach(v=>f.videos.push(v));sel.clear();closeSheet();toggleSelMode();renderFolders();hideLoad();};sf.appendChild(b);});document.getElementById('sheet').classList.add('open');}
 function closeSheet(){document.getElementById('sheet').classList.remove('open');}
 // Miniaturas reais: captura frame 1s do mp4 via canvas (ótimo em Importados)
 const thumbCache={};
@@ -392,8 +406,11 @@ async function shareSel(){
  if(!sel.size)return alert('Selecione 1+ arquivo');
  const idxs=[...sel];
  const files=[];
- for(const i of idxs){
+ showLoad('Preparando partilha…','Aguarde o término',0);
+ for(let k=0;k<idxs.length;k++){
+  const i=idxs[k];
   const v=curFolder.videos[i];if(!v)continue;
+  loadProg(`Arquivo ${k+1} de ${idxs.length} — ${v.n} — Aguarde o término`,(k+1)/idxs.length);
   try{
    if(v.file instanceof File){files.push(v.file);}
    else{
@@ -402,6 +419,7 @@ async function shareSel(){
    }
   }catch(_){alert('Falha ao preparar '+v.n);}
  }
+ hideLoad();
  if(!files.length)return;
  if(navigator.canShare&&navigator.canShare({files:files})){
   try{await navigator.share({files:files,title:'JrVideo'});}catch(_){}
@@ -521,11 +539,10 @@ window.addEventListener('resize',()=>pokeControls());
 document.getElementById('fileInput').addEventListener('change',async e=>{
 const files=[...e.target.files]; if(!files.length) return;
 const imp=DB.find(f=>f.id==='f0');
-const ov=document.getElementById('loading'),tx=document.getElementById('loadTxt');
-ov.classList.add('open');
+showLoad('Carregando arquivos…','Aguarde o término',0);
 for(let i=0;i<files.length;i++){
  const f=files[i];
- tx.textContent=`Arquivo ${i+1} de ${files.length} — ${f.name} — Aguarde o término`;
+ loadProg(`Arquivo ${i+1} de ${files.length} — ${f.name} — Aguarde o término`,(i+1)/files.length);
  const url=URL.createObjectURL(f);
  const fid='f'+Date.now()+Math.floor(Math.random()*1e6);
  const v={n:f.name,d:'--:--',src:url,e:'🎥',file:f,fid:fid,sz:f.size||0};
@@ -540,7 +557,7 @@ for(let i=0;i<files.length;i++){
  });
 }
 e.target.value='';
-ov.classList.remove('open');
+hideLoad();
 renderFolders();openFolder('f0');
 });
 renderFolders();renderGrid();applyBri();paintVol();bootTrash();
