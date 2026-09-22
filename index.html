@@ -97,7 +97,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,sans-serif
 #zR::after{content:'🔊'}
 .side{position:absolute;right:0;top:0;bottom:0;width:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:linear-gradient(90deg,transparent,rgba(0,0,0,.55));z-index:9}
 .sbtn{width:46px;height:46px;border-radius:50%;background:rgba(30,30,32,.85);border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:#fff}
-.ctrl{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.05);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border-top:1px solid rgba(255,255,255,.04);padding:10px 16px calc(env(safe-area-inset-bottom, 0px) + 14px);z-index:10}
+.ctrl{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.05);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border-top:1px solid rgba(255,255,255,.04);padding:10px 16px calc(env(safe-area-inset-bottom, 0px) + 14px);z-index:10;transition:opacity .3s}
+.ctrl.hidden{opacity:0;pointer-events:none}
 .scrub{display:flex;align-items:center;gap:8px;font-size:11px;color:#ddd;margin-bottom:8px}
 input[type=range]{flex:1;accent-color:#0A84FF;height:22px}
 .prow{display:flex;align-items:center;justify-content:center;gap:20px}
@@ -503,7 +504,7 @@ function pokeControls(){
  if(!ctrlEl) return;
  ctrlEl.classList.remove('hidden');
  clearTimeout(hideT);
- if(isLand()) hideT=setTimeout(()=>ctrlEl.classList.add('hidden'),2800);
+ hideT=setTimeout(()=>ctrlEl.classList.add('hidden'),2800);
 }
 // Motor unico volume/luz: mesma sensibilidade, mesma resposta, mesma memoria
 let AC=null,gainNode=null;
@@ -545,7 +546,7 @@ function bindZone(el,ov,isVol){
  el.addEventListener('mousedown',e=>{ensureAudio();y0=e.clientY;show();const mv=ev=>{const d=(y0-ev.clientY)/220;if(isVol)setVol(d);else setBri(d);y0=ev.clientY;};const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);pokeControls();};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);});
 }
 bindZone(zL,ovL,false);bindZone(zR,ovR,true);
-let lastTap=0;vid.addEventListener('click',()=>{const n=Date.now();if(n-lastTap<300){if(vid.duration)vid.currentTime=Math.min(vid.duration,vid.currentTime+10);}else if(isLand()){ctrlEl.classList.toggle('hidden');}lastTap=n;pokeControls();});
+let lastTap=0;vid.addEventListener('click',()=>{const n=Date.now();if(n-lastTap<300){if(vid.duration)vid.currentTime=Math.min(vid.duration,vid.currentTime+10);}else{ctrlEl.classList.toggle('hidden');}lastTap=n;pokeControls();});
 window.addEventListener('orientationchange',()=>setTimeout(()=>{pokeControls();},300));
 window.addEventListener('resize',()=>pokeControls());
 // Import real: Arquivos no PC, Fototeca/Arquivos no iPhone via input file
