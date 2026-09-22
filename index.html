@@ -88,6 +88,11 @@ input[type=range]{flex:1;accent-color:#0A84FF;height:22px}
 .overlay .bar{height:6px;border-radius:4px;background:#2c2c30;margin-top:8px;overflow:hidden}
 .overlay .fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#0A84FF,#5E5CE6)}
 #ovL{margin-left:-110px}#ovR{margin-left:110px}
+#loading{position:absolute;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:60;text-align:center;padding:24px}
+#loading.open{display:flex}
+#loading .spin{width:52px;height:52px;border-radius:50%;border:5px solid rgba(255,255,255,.18);border-top-color:#0A84FF;animation:spin 0.9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading b{font-size:18px}#loading p{color:#aaa;font-size:14px}
 @media (orientation:landscape){
  .overlay{top:16%}
  .ctrl{background:rgba(0,0,0,.05);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border:1px solid transparent;border-radius:20px;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom, 0px) + 8px)}
@@ -133,8 +138,10 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 </div>
 <div class="toolbar" id="trashtoolbar" style="display:none">
 <button class="mov" onclick="restoreSel()">Restaurar</button>
-<button class="del" onclick="emptyTrash(true)">Esvaziar</button>
+<button class="del" onclick="bulk('deletar')">Apagar</button>
+<button class="del" onclick="emptyTrash()">Esvaziar</button>
 </div>
+<div id="loading"><div class="spin"></div><b>Carregando arquivos…</b><p id="loadTxt">Aguarde o término</p></div>
 <div class="sheet" id="sheet">
 <h3 id="sheetT">Mover para...</h3>
 <div id="sheetFolders"></div>
@@ -360,18 +367,29 @@ let lastTap=0;vid.addEventListener('click',()=>{const n=Date.now();if(n-lastTap<
 window.addEventListener('orientationchange',()=>setTimeout(()=>{pokeControls();},300));
 window.addEventListener('resize',()=>pokeControls());
 // Import real: Arquivos no PC, Fototeca/Arquivos no iPhone via input file
-document.getElementById('fileInput').addEventListener('change',e=>{
+document.getElementById('fileInput').addEventListener('change',async e=>{
 const files=[...e.target.files]; if(!files.length) return;
 const imp=DB.find(f=>f.id==='f0');
-files.forEach(async f=>{
-const url=URL.createObjectURL(f);
-const fid='f'+Date.now()+Math.floor(Math.random()*1e6);
-const v={n:f.name,d:'--:--',src:url,e:'🎥',file:f,fid:fid};
-try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:'--:--',keep:true});}catch(_){}
-try{const tmp=document.createElement('video');tmp.preload='metadata';tmp.src=url;tmp.onloadedmetadata=async()=>{v.d=fmt(tmp.duration);try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:v.d,keep:true});}catch(_){}renderFolders();if(curFolder&&curFolder.id==='f0')renderGrid();};}catch(_){}
-imp.videos.push(v);
-});
+const ov=document.getElementById('loading'),tx=document.getElementById('loadTxt');
+ov.classList.add('open');
+for(let i=0;i<files.length;i++){
+ const f=files[i];
+ tx.textContent=`Arquivo ${i+1} de ${files.length} — ${f.name} — Aguarde o término`;
+ const url=URL.createObjectURL(f);
+ const fid='f'+Date.now()+Math.floor(Math.random()*1e6);
+ const v={n:f.name,d:'--:--',src:url,e:'🎥',file:f,fid:fid};
+ imp.videos.push(v);renderFolders();
+ try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:'--:--',keep:true});}catch(_){}
+ await new Promise(res=>{
+  try{
+   const tmp=document.createElement('video');tmp.preload='metadata';tmp.src=url;
+   const done=async()=>{v.d=fmt(tmp.duration||0);try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:v.d,keep:true});}catch(_){}res();};
+   tmp.onloadedmetadata=done;tmp.onerror=()=>res();setTimeout(res,8000);
+  }catch(_){res();}
+ });
+}
 e.target.value='';
+ov.classList.remove('open');
 renderFolders();openFolder('f0');
 });
 renderFolders();renderGrid();applyBri();paintVol();bootTrash();
