@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Viewer Pro - iPhone 14 Pro Max Prototype</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JrVideo">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,sans-serif;background:#101014;color:#fff;min-height:100vh;display:flex;gap:32px;align-items:flex-start;justify-content:center;padding:28px;flex-wrap:wrap}
+.doc{max-width:380px;color:#d7d7de;font-size:13px;line-height:1.6}
+.doc h1{color:#fff;font-size:22px;margin-bottom:8px}
+.doc li{margin-bottom:6px}
+.phone{width:393px;height:852px;background:#000;border-radius:60px;border:12px solid #2a2a2e;position:relative;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6);flex-shrink:0}
+.island{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#000;border-radius:20px;z-index:50;border:1px solid #222;display:flex;align-items:center;justify-content:flex-end;padding-right:14px}
+.island span{width:10px;height:10px;border-radius:50%;background:#1a2030;box-shadow:inset 0 0 3px #3a5a9a}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;background:#000}
+.screen.active{display:flex}
+.nav{padding:62px 18px 10px;display:flex;align-items:center;gap:12px}
+.nav h2{font-size:28px;font-weight:800;flex:1}
+.btn{background:#1c1c1e;border-radius:12px;padding:8px 12px;font-size:14px;color:#0A84FF;border:none;cursor:pointer}
+.search{margin:0 18px;background:#1c1c1e;border-radius:12px;padding:10px 12px;color:#888;font-size:15px}
+.folder{display:flex;gap:12px;align-items:center;margin:10px 18px 0;background:#131315;border:1px solid #26262a;border-radius:18px;padding:14px;cursor:pointer}
+.folder:active{transform:scale(.98)}
+.fstack{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#0A84FF,#7D4DFF);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.fmeta{flex:1}.fmeta b{font-size:16px}.fmeta p{font-size:12px;color:#999}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px 18px;overflow-y:auto}
+.thumb{aspect-ratio:9/13;border-radius:12px;background:#1c1c1e;position:relative;overflow:hidden;cursor:pointer;border:2px solid transparent}
+.thumb.sel{border-color:#0A84FF}
+.thumb .img{position:absolute;inset:0;background:linear-gradient(180deg,#333,#111);display:flex;align-items:center;justify-content:center;font-size:30px}
+.thumb .dur{position:absolute;bottom:22px;right:6px;background:rgba(0,0,0,.75);font-size:10px;padding:2px 6px;border-radius:6px}
+.thumb .nm{position:absolute;bottom:0;left:0;right:0;font-size:10px;padding:6px;background:linear-gradient(transparent,rgba(0,0,0,.9));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thumb .ck{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#0A84FF;display:none;align-items:center;justify-content:center;font-size:13px}
+.thumb.sel .ck{display:flex}
+.toolbar{margin-top:auto;background:#131315;border-top:1px solid #26262a;padding:12px 12px 34px;display:flex;gap:8px}
+.toolbar button{flex:1;padding:12px 0;border-radius:12px;border:none;font-weight:700;font-size:13px;cursor:pointer}
+.del{background:#FF453A;color:#fff}.mov{background:#0A84FF;color:#fff}.cpy{background:#2c2c2e;color:#fff}
+/* PLAYER */
+#player{background:#000;position:absolute;inset:0}
+#vid{width:100%;height:100%;object-fit:contain;background:#000}
+.gzone{position:absolute;top:0;bottom:140px;width:90px;z-index:5}
+#zL{left:0}#zR{right:70px}
+.side{position:absolute;right:0;top:0;bottom:140px;width:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:linear-gradient(90deg,transparent,rgba(0,0,0,.55));z-index:6}
+.sbtn{width:46px;height:46px;border-radius:50%;background:rgba(30,30,32,.85);border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:#fff}
+.ctrl{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.92) 30%);padding:10px 16px 34px;z-index:7}
+.scrub{display:flex;align-items:center;gap:8px;font-size:11px;color:#ddd;margin-bottom:8px}
+input[type=range]{flex:1;accent-color:#0A84FF;height:22px}
+.prow{display:flex;align-items:center;justify-content:center;gap:18px}
+.pbtn{width:52px;height:52px;border-radius:50%;background:#1c1c1e;border:1px solid #333;color:#fff;font-size:20px;cursor:pointer}
+.pbtn.main{width:68px;height:68px;background:#0A84FF;border:none;font-size:26px}
+.mini{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.mini button{background:#1c1c1e;color:#ddd;border:1px solid #333;border-radius:10px;padding:7px 10px;font-size:12px;cursor:pointer}
+.overlay{position:absolute;top:35%;padding:10px 16px;background:rgba(0,0,0,.7);border-radius:14px;font-size:22px;display:none;z-index:9}
+#ovL{left:20px}#ovR{right:80px}
+.hint{font-size:11px;color:#888;text-align:center;margin-top:6px}
+.back{cursor:pointer;color:#0A84FF;font-size:16px}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#1c1c1e;border-radius:20px 20px 0 0;padding:18px 18px 40px;display:none;z-index:20}
+.sheet.open{display:block}
+.sheet button{width:100%;padding:13px;border-radius:12px;border:none;margin-top:8px;font-size:15px;font-weight:600;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="doc">
+<h1>Video Viewer Pro — Protótipo 14 Pro Max</h1>
+<p>Como analista + designer sênior, ajustei seu pedido às regras Apple:</p>
+<ul>
+<li>❌ <b>Fechar app / ver apps em memória:</b> proibido iOS — removido. Use gesto Home do sistema.</li>
+<li>❌ <b>Pastas do iPhone:</b> iOS não permite. Uso pastas do App + Fototeca + iCloud.</li>
+<li>✅ Mantido: miniaturas, multi-seleção, player bottom, próximo/anterior, Fit/Fill, vertical/horizontal, scrub, gesto volume (direita) / brilho (esquerda).</li>
+</ul>
+<p><b>Como testar:</b> 1) Toque pasta → 2) Toque vídeo → 3) Arraste vertical lado esquerdo/direito do vídeo → 4) Use barra + botões bottom → 5) Gire o celular p/ horizontal.</p>
+<p class="hint">Vídeos sample mp4 reais carregados via rede.</p>
+</div>
+
+<div class="phone">
+<div class="island"><span></span></div>
+
+<!-- TELA A -->
+<div class="screen active" id="s-home">
+<div class="nav"><h2>Vídeos</h2><button class="btn" onclick="alert('Import via Files Picker / Fototeca (PHPhotoLibrary)')">+ Importar</button></div>
+<div class="search">🔍 Buscar pastas e vídeos</div>
+<div id="folders"></div>
+<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)</div>
+</div>
+
+<!-- TELA B -->
+<div class="screen" id="s-folder">
+<div class="nav"><span class="back" onclick="show('s-home')">‹ Voltar</span><h2 id="fname" style="font-size:20px">Viagem</h2><button class="btn" id="selBtn" onclick="toggleSelMode()">Selecionar</button></div>
+<div class="grid" id="grid"></div>
+<div class="toolbar" id="toolbar" style="display:none">
+<button class="del" onclick="bulk('deletar')">Deletar</button>
+<button class="mov" onclick="openSheet('Mover')">Mover</button>
+<button class="cpy" onclick="openSheet('Copiar')">Copiar</button>
+</div>
+<div class="sheet" id="sheet">
+<h3 id="sheetT">Mover para...</h3>
+<div id="sheetFolders"></div>
+<button style="background:#2c2c2e;color:#fff" onclick="closeSheet()">Cancelar</button>
+</div>
+</div>
+
+<!-- TELA C -->
+<div class="screen" id="s-player">
+<div id="player">
+<video id="vid" playsinline preload="metadata"></video>
+<div class="gzone" id="zL"></div>
+<div class="gzone" id="zR"></div>
+<div class="side">
+<div class="sbtn" onclick="show('s-folder')" title="Voltar pasta">‹</div>
+<div class="sbtn" onclick="toggleFit()" title="Ajuste">⛶</div>
+<div class="sbtn" onclick="toggleLock()" id="lockBtn" title="Trava rotação">🔓</div>
+</div>
+<div class="overlay" id="ovL">☀️ 50%</div>
+<div class="overlay" id="ovR">🔊 50%</div>
+<div class="ctrl">
+<div class="scrub"><span id="tCur">00:00</span><input type="range" id="seek" value="0" min="0" max="1000"><span id="tTot">00:00</span></div>
+<div class="prow">
+<button class="pbtn" onclick="step(-1)">⏮</button>
+<button class="pbtn main" id="pp" onclick="playPause()">▶</button>
+<button class="pbtn" onclick="step(1)">⏭</button>
+</div>
+<div class="mini">
+<button onclick="toggleFit()">Ajuste: <span id="fitL">Contain</span></button>
+<button onclick="document.getElementById('vid').playbackRate=1.5;alert('Velocidade 1.5x')">1.5x</button>
+<button onclick="show('s-folder')">📁 Pasta</button>
+</div>
+<div class="hint">Esq: brilho • Dir: volume • Duplo-toque: ±10s</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<script>
+const DB=[
+{id:'f1',name:'Viagem RJ',icon:'✈️',videos:[
+ {n:'praia.mp4',d:'0:30',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',e:'🎬'},
+ {n:'trilha.mp4',d:'0:15',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',e:'🌊'},
+ {n:'pôr-do-sol.mp4',d:'0:15',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',e:'🌅'}]},
+{id:'f2',name:'Família',icon:'👨‍👩‍👧',videos:[
+ {n:'aniversario.mp4',d:'0:59',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',e:'🎂'},
+ {n:'churrasco.mp4',d:'0:15',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',e:'🍖'}]},
+{id:'f3',name:'Trabalho',icon:'💼',videos:[
+ {n:'reuniao.mp4',d:'0:15',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',e:'📊'}]}
+];
+let curFolder=DB[0], curIdx=0, selMode=false, sel=new Set(), vol=.5, bri=.5, fit=0;
+const fits=['contain','cover','fill'];
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id!=='s-player'){vid.pause();pp.textContent='▶';}}
+function renderFolders(){const el=document.getElementById('folders');el.innerHTML='';DB.forEach(f=>{const d=document.createElement('div');d.className='folder';d.innerHTML=`<div class="fstack">${f.icon}</div><div class="fmeta"><b>${f.name}</b><p>${f.videos.length} vídeos • mp4</p></div><span>›</span>`;d.onclick=()=>openFolder(f.id);el.appendChild(d);});}
+function openFolder(id){curFolder=DB.find(f=>f.id===id);selMode=false;sel.clear();document.getElementById('toolbar').style.display='none';selBtn.textContent='Selecionar';document.getElementById('fname').textContent=curFolder.name;renderGrid();show('s-folder');}
+function renderGrid(){const g=document.getElementById('grid');g.innerHTML='';curFolder.videos.forEach((v,i)=>{const t=document.createElement('div');t.className='thumb'+(sel.has(i)?' sel':'');t.innerHTML=`<div class="img">${v.e}</div><div class="dur">${v.d}</div><div class="nm">${v.n}</div><div class="ck">✓</div>`;t.onclick=()=>{if(selMode){sel.has(i)?sel.delete(i):sel.add(i);renderGrid();updateToolbar();}else openVideo(i);};g.appendChild(t);});}
+function toggleSelMode(){selMode=!selMode;sel.clear();selBtn.textContent=selMode?'OK':'Selecionar';renderGrid();updateToolbar();}
+function updateToolbar(){document.getElementById('toolbar').style.display=selMode?'flex':'none';}
+function bulk(a){if(!sel.size)return alert('Selecione 1+ arquivo');if(a==='deletar'&&confirm(`Deletar ${sel.size} arquivo(s)?`)){curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));sel.clear();renderGrid();renderFolders();}}
+function openSheet(a){if(!sel.size)return alert('Selecione 1+ arquivo');document.getElementById('sheetT').textContent=a+' '+sel.size+' arquivo(s) para...';const sf=document.getElementById('sheetFolders');sf.innerHTML='';DB.filter(f=>f!==curFolder).forEach(f=>{const b=document.createElement('button');b.style.background='#0A84FF';b.style.color='#fff';b.textContent='📁 '+f.name;b.onclick=()=>{const mv=document.getElementById('sheetT').textContent.startsWith('Mover');const items=[...sel].sort((x,y)=>y-x).map(i=>curFolder.videos[i]);if(mv)curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));items.reverse().forEach(v=>f.videos.push(v));sel.clear();closeSheet();toggleSelMode();renderFolders();alert('Concluído!');};sf.appendChild(b);});document.getElementById('sheet').classList.add('open');}
+function closeSheet(){document.getElementById('sheet').classList.remove('open');}
+// PLAYER
+const vid=document.getElementById('vid'),pp=document.getElementById('pp'),seek=document.getElementById('seek');
+function openVideo(i){curIdx=i;vid.src=curFolder.videos[i].src;vid.play();pp.textContent='⏸';show('s-player');}
+function playPause(){vid.paused?vid.play():vid.pause();pp.textContent=vid.paused?'▶':'⏸';}
+function step(d){curIdx=(curIdx+d+curFolder.videos.length)%curFolder.videos.length;openVideo(curIdx);}
+function toggleFit(){fit=(fit+1)%3;vid.style.objectFit=fits[fit];document.getElementById('fitL').textContent=fits[fit];}
+function toggleLock(){const b=document.getElementById('lockBtn');b.textContent=b.textContent==='🔓'?'🔒':'🔓';}
+vid.ontimeupdate=()=>{if(vid.duration){seek.value=vid.currentTime/vid.duration*1000;tCur.textContent=fmt(vid.currentTime);tTot.textContent=fmt(vid.duration);}};
+seek.oninput=()=>{if(vid.duration)vid.currentTime=seek.value/1000*vid.duration;};
+function fmt(s){s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+vid.onended=()=>step(1);
+// Gestos volume/brilho
+function bindZone(el,ov,isVol){let y0=null;el.addEventListener('touchstart',e=>{y0=e.touches[0].clientY;ov.style.display='block';},{passive:true});el.addEventListener('touchmove',e=>{const dy=(y0-e.touches[0].clientY)/200;if(isVol){vol=Math.min(1,Math.max(0,vol+dy));vid.volume=vol;ov.textContent='🔊 '+Math.round(vol*100)+'%';}else{bri=Math.min(1,Math.max(.2,bri+dy));vid.style.filter=`brightness(${bri+.5})`;ov.textContent='☀️ '+Math.round(bri*100)+'%';}y0=e.touches[0].clientY;},{passive:true});el.addEventListener('touchend',()=>ov.style.display='none');el.addEventListener('mousedown',e=>{y0=e.clientY;ov.style.display='block';const mv=ev=>{const dy=(y0-ev.clientY)/200;if(isVol){vol=Math.min(1,Math.max(0,vol+dy));vid.volume=vol;ov.textContent='🔊 '+Math.round(vol*100)+'%';}else{bri=Math.min(1,Math.max(.2,bri+dy));vid.style.filter=`brightness(${bri+.5})`;ov.textContent='☀️ '+Math.round(bri*100)+'%';}y0=ev.clientY;};const up=()=>{ov.style.display='none';window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);});}
+bindZone(zL,ovL,false);bindZone(zR,ovR,true);
+let lastTap=0;vid.addEventListener('click',()=>{const n=Date.now();if(n-lastTap<300){vid.currentTime+=10;}lastTap=n;});
+renderFolders();renderGrid();
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
+</body>
+</html>
