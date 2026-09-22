@@ -31,9 +31,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,sans-serif
  .gzone{top:0;bottom:0;width:30vw}
  #zL{left:0}
  #zR{right:64px}
- .side{top:0;bottom:0}
- .ctrl{transition:opacity .3s;background:linear-gradient(transparent,rgba(0,0,0,.75));padding:8px 16px calc(env(safe-area-inset-bottom, 0px) + 10px)}
+ .side{top:0;bottom:0;background:transparent}
+ .ctrl{transition:opacity .3s;background:rgba(0,0,0,.18);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid transparent;border-radius:20px;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom, 0px) + 8px);padding:8px 16px calc(env(safe-area-inset-bottom, 0px) + 10px);opacity:.94}
  .ctrl.hidden{opacity:0;pointer-events:none}
+ .side .sbtn{background:rgba(15,15,18,.32);border-color:rgba(255,255,255,.08)}
+ .prow .pbtn{opacity:.88}
+ .prow .pbtn.main{opacity:.92}
+ .mini button{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.08);opacity:.85}
+ .scrub{opacity:.85}
+ input[type=range]{opacity:.8}
  .overlay{top:18%}
  .mini .hint,.hint{display:none}
  .pbtn{width:46px;height:46px;font-size:18px}
