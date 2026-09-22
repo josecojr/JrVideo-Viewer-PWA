@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Video Viewer Pro - iPhone 14 Pro Max Prototype</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
@@ -14,15 +14,20 @@
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,sans-serif;background:#101014;color:#fff;min-height:100vh;display:flex;gap:32px;align-items:flex-start;justify-content:center;padding:28px;flex-wrap:wrap}
-.doc{max-width:380px;color:#d7d7de;font-size:13px;line-height:1.6}
-.doc h1{color:#fff;font-size:22px;margin-bottom:8px}
-.doc li{margin-bottom:6px}
-.phone{width:393px;height:852px;background:#000;border-radius:60px;border:12px solid #2a2a2e;position:relative;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6);flex-shrink:0}
-.island{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#000;border-radius:20px;z-index:50;border:1px solid #222;display:flex;align-items:center;justify-content:flex-end;padding-right:14px}
-.island span{width:10px;height:10px;border-radius:50%;background:#1a2030;box-shadow:inset 0 0 3px #3a5a9a}
+html,body{height:100%;background:#000}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,sans-serif;background:#000;color:#fff;min-height:100dvh;display:block;padding:0;margin:0;overflow:hidden}
+.doc{display:none}
+.phone{width:100vw;height:100dvh;background:#000;border-radius:0;border:none;position:fixed;inset:0;overflow:hidden;box-shadow:none;flex-shrink:0}
+.island{display:none}
 .screen{position:absolute;inset:0;display:none;flex-direction:column;background:#000}
 .screen.active{display:flex}
+.nav{padding:calc(env(safe-area-inset-top, 0px) + 14px) 18px 10px;display:flex;align-items:center;gap:12px}
+.ctrl,.toolbar{padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 16px)}
+#vid{width:100vw;height:100dvh;object-fit:contain;background:#000}
+@media (orientation:landscape){
+ .grid{grid-template-columns:1fr 1fr 1fr 1fr 1fr}
+ #vid{object-fit:contain}
+}
 .nav{padding:62px 18px 10px;display:flex;align-items:center;gap:12px}
 .nav h2{font-size:28px;font-weight:800;flex:1}
 .btn{background:#1c1c1e;border-radius:12px;padding:8px 12px;font-size:14px;color:#0A84FF;border:none;cursor:pointer}
