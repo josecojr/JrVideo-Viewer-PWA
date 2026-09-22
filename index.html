@@ -135,6 +135,14 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/*" multiple style="display:none">
 <div class="search">🔍 Buscar pastas e vídeos</div>
 <div id="folders"></div>
+<div class="folder" onclick="openOriginals()"><div class="fstack">📋</div><div class="fmeta"><b>Originais no telefone</b><p id="origSub">Toque para ver a lista e liberar espaço</p></div><span>›</span></div>
+<div class="sheet" id="origSheet">
+<h3>📋 Originais importados</h3>
+<div id="origList" style="max-height:220px;overflow-y:auto;margin:8px 0"></div>
+<div style="background:#101014;border-radius:12px;padding:12px;font-size:12px;color:#ccc;line-height:1.7">O app web <b>não pode apagar originais</b> do iPhone.<br>1) Fotos → Biblioteca → selecione pelos nomes abaixo → 🗑️ Apagar<br>2) Fotos → Álbuns → Apagados → ⋯ → Apagar tudo<br>3) Arquivos → mesmos nomes → Apagar → Apagados → Apagar tudo</div>
+<button style="background:#0A84FF;color:#fff" onclick="copyOriginals()">Copiar lista de nomes</button>
+<button style="background:#2c2c2e;color:#fff" onclick="document.getElementById('origSheet').classList.remove('open')">Fechar</button>
+</div>
 <div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)</div>
 </div>
 
@@ -323,8 +331,24 @@ async function emptyTrash(){
  renderFolders();updateToolbar();
  alert(tot?`Lixeira esvaziada. ≈ ${mb(tot)} liberados.`:'Lixeira esvaziada.');
 }
-async function bootTrash(){
- try{
+function openOriginals(){
+ const imp=DB.find(f=>f.id==='f0');
+ const items=imp?imp.videos:[];
+ const tot=items.reduce((s,v)=>s+(v.sz||0),0);
+ document.getElementById('origSub').textContent=items.length?`${items.length} importados • ${mb(tot)} em cópias`:'Nada importado ainda';
+ const L=document.getElementById('origList');L.innerHTML='';
+ if(!items.length)L.innerHTML='<p style="color:#888;font-size:13px">Importe vídeos primeiro. Os nomes originais aparecem aqui.</p>';
+ items.forEach(v=>{const d=document.createElement('div');d.style.cssText='padding:9px 4px;border-bottom:1px solid #26262a;font-size:13px';d.textContent=`🎥 ${v.n}${v.sz?' • '+mb(v.sz):''}`;L.appendChild(d);});
+ document.getElementById('origSheet').classList.add('open');
+}
+function copyOriginals(){
+ const imp=DB.find(f=>f.id==='f0');
+ const txt=(imp?imp.videos:[]).map(v=>v.n).join('\n');
+ if(!txt)return alert('Lista vazia');
+ try{navigator.clipboard.writeText(txt);alert('Lista copiada! Cole no buscar do Fotos/Arquivos.');}
+ catch(_){prompt('Copie os nomes:',txt);}
+}
+async function bootTrash(){ try{
   const rows=await idbAll('trash');
   rows.sort((a,b)=>b.at-a.at);
   const files=await idbAll('files');
