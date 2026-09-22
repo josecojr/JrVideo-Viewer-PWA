@@ -84,7 +84,8 @@ input[type=range]{flex:1;accent-color:#0A84FF;height:22px}
 
 <!-- TELA A -->
 <div class="screen active" id="s-home">
-<div class="nav"><h2>Vídeos</h2><button class="btn" onclick="alert('Import via Files Picker / Fototeca (PHPhotoLibrary)')">+ Importar</button></div>
+<div class="nav"><h2>Vídeos</h2><button class="btn" onclick="document.getElementById('fileInput').click()">+ Importar</button></div>
+<input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/*" multiple style="display:none">
 <div class="search">🔍 Buscar pastas e vídeos</div>
 <div id="folders"></div>
 <div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)</div>
@@ -140,6 +141,7 @@ input[type=range]{flex:1;accent-color:#0A84FF;height:22px}
 
 <script>
 const DB=[
+{id:'f0',name:'Importados',icon:'📥',videos:[]},
 {id:'f1',name:'Viagem RJ',icon:'✈️',videos:[
  {n:'praia.mp4',d:'0:30',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',e:'🎬'},
  {n:'trilha.mp4',d:'0:15',src:'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',e:'🌊'},
@@ -176,6 +178,20 @@ vid.onended=()=>step(1);
 function bindZone(el,ov,isVol){let y0=null;el.addEventListener('touchstart',e=>{y0=e.touches[0].clientY;ov.style.display='block';},{passive:true});el.addEventListener('touchmove',e=>{const dy=(y0-e.touches[0].clientY)/200;if(isVol){vol=Math.min(1,Math.max(0,vol+dy));vid.volume=vol;ov.textContent='🔊 '+Math.round(vol*100)+'%';}else{bri=Math.min(1,Math.max(.2,bri+dy));vid.style.filter=`brightness(${bri+.5})`;ov.textContent='☀️ '+Math.round(bri*100)+'%';}y0=e.touches[0].clientY;},{passive:true});el.addEventListener('touchend',()=>ov.style.display='none');el.addEventListener('mousedown',e=>{y0=e.clientY;ov.style.display='block';const mv=ev=>{const dy=(y0-ev.clientY)/200;if(isVol){vol=Math.min(1,Math.max(0,vol+dy));vid.volume=vol;ov.textContent='🔊 '+Math.round(vol*100)+'%';}else{bri=Math.min(1,Math.max(.2,bri+dy));vid.style.filter=`brightness(${bri+.5})`;ov.textContent='☀️ '+Math.round(bri*100)+'%';}y0=ev.clientY;};const up=()=>{ov.style.display='none';window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);});}
 bindZone(zL,ovL,false);bindZone(zR,ovR,true);
 let lastTap=0;vid.addEventListener('click',()=>{const n=Date.now();if(n-lastTap<300){vid.currentTime+=10;}lastTap=n;});
+// Import real: Arquivos no PC, Fototeca/Arquivos no iPhone via input file
+document.getElementById('fileInput').addEventListener('change',e=>{
+const files=[...e.target.files]; if(!files.length) return;
+const imp=DB.find(f=>f.id==='f0');
+files.forEach(f=>{
+const url=URL.createObjectURL(f);
+const v={n:f.name,d:'--:--',src:url,e:'🎥',file:f};
+// dura real quando carregar metadata
+try{const tmp=document.createElement('video');tmp.preload='metadata';tmp.src=url;tmp.onloadedmetadata=()=>{v.d=fmt(tmp.duration);renderFolders();if(curFolder&&curFolder.id==='f0')renderGrid();};}catch(_){}
+imp.videos.push(v);
+});
+e.target.value='';
+renderFolders();openFolder('f0');
+});
 renderFolders();renderGrid();
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
