@@ -118,9 +118,13 @@ input[type=range]{flex:1;accent-color:#0A84FF;height:22px}
 <div class="nav"><span class="back" onclick="show('s-home')">‹ Voltar</span><h2 id="fname" style="font-size:20px">Viagem</h2><button class="btn" id="selBtn" onclick="toggleSelMode()">Selecionar</button></div>
 <div class="grid" id="grid"></div>
 <div class="toolbar" id="toolbar" style="display:none">
-<button class="del" onclick="bulk('deletar')">Deletar</button>
+<button class="del" onclick="bulk('deletar')">Lixeira</button>
 <button class="mov" onclick="openSheet('Mover')">Mover</button>
 <button class="cpy" onclick="openSheet('Copiar')">Copiar</button>
+</div>
+<div class="toolbar" id="trashtoolbar" style="display:none">
+<button class="mov" onclick="restoreSel()">Restaurar</button>
+<button class="del" onclick="emptyTrash(true)">Esvaziar</button>
 </div>
 <div class="sheet" id="sheet">
 <h3 id="sheetT">Mover para...</h3>
@@ -178,12 +182,73 @@ const DB=[
 let curFolder=DB[0], curIdx=0, selMode=false, sel=new Set(), vol=.5, bri=.5, fit=0;
 const fits=['contain','cover','fill'];
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id!=='s-player'){vid.pause();pp.textContent='▶';}}
-function renderFolders(){const el=document.getElementById('folders');el.innerHTML='';DB.forEach(f=>{const d=document.createElement('div');d.className='folder';d.innerHTML=`<div class="fstack">${f.icon}</div><div class="fmeta"><b>${f.name}</b><p>${f.videos.length} vídeos • mp4</p></div><span>›</span>`;d.onclick=()=>openFolder(f.id);el.appendChild(d);});}
-function openFolder(id){curFolder=DB.find(f=>f.id===id);selMode=false;sel.clear();document.getElementById('toolbar').style.display='none';selBtn.textContent='Selecionar';document.getElementById('fname').textContent=curFolder.name;renderGrid();show('s-folder');}
+// Lixeira real com IndexedDB (sobrevive a fechar o app)
+let TRASH=[];
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('jrvideo',1);r.onupgradeneeded=()=>{r.result.createObjectStore('trash',{keyPath:'tid'});r.result.createObjectStore('files',{keyPath:'fid'});};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function idbAll(store){const db=await idb();return new Promise((res)=>{const tx=db.transaction(store,'readonly');const q=tx.objectStore(store).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>res([]);});}
+async function idbPut(store,val){const db=await idb();return new Promise((res)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(val);tx.oncomplete=()=>res();tx.onerror=()=>res();});}
+async function idbDel(store,key){const db=await idb();return new Promise((res)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);tx.oncomplete=()=>res();tx.onerror=()=>res();});}
+function isTrash(){return curFolder&&curFolder.id==='trash';}
+function renderFolders(){const el=document.getElementById('folders');el.innerHTML='';DB.forEach(f=>{const d=document.createElement('div');d.className='folder';d.innerHTML=`<div class="fstack">${f.icon}</div><div class="fmeta"><b>${f.name}</b><p>${f.videos.length} vídeos • mp4</p></div><span>›</span>`;d.onclick=()=>openFolder(f.id);el.appendChild(d);});const t=document.createElement('div');t.className='folder';t.innerHTML=`<div class="fstack">🗑️</div><div class="fmeta"><b>Lixeira</b><p>${TRASH.length} na lixeira</p></div><span>›</span>`;t.onclick=()=>openTrash();el.appendChild(t);}
+function openFolder(id){curFolder=DB.find(f=>f.id===id);selMode=false;sel.clear();document.getElementById('toolbar').style.display='none';document.getElementById('trashtoolbar').style.display='none';selBtn.textContent='Selecionar';document.getElementById('fname').textContent=curFolder.name;renderGrid();updateToolbar();show('s-folder');}
+function openTrash(){curFolder={id:'trash',name:'Lixeira',videos:TRASH};selMode=false;sel.clear();document.getElementById('toolbar').style.display='none';document.getElementById('trashtoolbar').style.display='none';selBtn.textContent='Selecionar';document.getElementById('fname').textContent='🗑️ Lixeira';renderGrid();updateToolbar();show('s-folder');}
 function renderGrid(){const g=document.getElementById('grid');g.innerHTML='';curFolder.videos.forEach((v,i)=>{const t=document.createElement('div');t.className='thumb'+(sel.has(i)?' sel':'');t.innerHTML=`<div class="img">${v.e}</div><div class="dur">${v.d}</div><div class="nm">${v.n}</div><div class="ck">✓</div>`;t.onclick=()=>{if(selMode){sel.has(i)?sel.delete(i):sel.add(i);renderGrid();updateToolbar();}else openVideo(i);};g.appendChild(t);});}
 function toggleSelMode(){selMode=!selMode;sel.clear();selBtn.textContent=selMode?'OK':'Selecionar';renderGrid();updateToolbar();}
-function updateToolbar(){document.getElementById('toolbar').style.display=selMode?'flex':'none';}
-function bulk(a){if(!sel.size)return alert('Selecione 1+ arquivo');if(a==='deletar'&&confirm(`Deletar ${sel.size} arquivo(s)?`)){curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));sel.clear();renderGrid();renderFolders();}}
+function updateToolbar(){const tt=document.getElementById('trashtoolbar'),tb=document.getElementById('toolbar');if(isTrash()){tb.style.display='none';tt.style.display=selMode?'flex':'none';}else{tt.style.display='none';tb.style.display=selMode?'flex':'none';}}
+async function bulk(a){
+ if(!sel.size)return alert('Selecione 1+ arquivo');
+ if(isTrash()){
+  if(!confirm(`Apagar definitivo ${sel.size} da lixeira?`))return;
+  const idxs=[...sel].sort((x,y)=>y-x);
+  for(const i of idxs){const v=TRASH[i];await idbDel('trash',v.tid);if(v.fid)await idbDel('files',v.fid);TRASH.splice(i,1);}
+  sel.clear();curFolder.videos=TRASH;renderGrid();renderFolders();updateToolbar();return;
+ }
+ if(a==='deletar'&&confirm(`Mover ${sel.size} para a Lixeira?`)){
+  const idxs=[...sel].sort((x,y)=>y-x);
+  for(const i of idxs){
+   const v=curFolder.videos[i];
+   const rec={tid:'t'+Date.now()+Math.floor(Math.random()*1e6),fid:v.fid||null,name:v.n,d:v.d,src:v.file?null:v.src,fromId:curFolder.id,at:Date.now(),hasBlob:!!v.file};
+   if(v.file){await idbPut('files',{fid:v.fid,blob:v.file,name:v.n,d:v.d,keep:true});}
+   await idbPut('trash',rec);
+   TRASH.unshift({tid:rec.tid,fid:rec.fid,n:rec.name,d:rec.d,src:rec.src||v.src,e:v.e||'🎥',file:v.file||null,fromId:rec.fromId});
+  }
+  curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));
+  sel.clear();renderGrid();renderFolders();updateToolbar();
+ }
+}
+async function restoreSel(){
+ if(!sel.size)return alert('Selecione 1+ na lixeira');
+ const idxs=[...sel].sort((x,y)=>y-x);
+ for(const i of idxs){
+  const v=TRASH[i];
+  const dest=DB.find(f=>f.id===v.fromId)||DB.find(f=>f.id==='f0')||DB[0];
+  dest.videos.push({n:v.n,d:v.d,src:v.src,e:'🎥',file:v.file||null,fid:v.fid||null});
+  await idbDel('trash',v.tid);TRASH.splice(i,1);
+ }
+ sel.clear();curFolder.videos=TRASH;renderGrid();renderFolders();updateToolbar();alert('Restaurado!');
+}
+async function emptyTrash(){
+ if(!TRASH.length)return alert('Lixeira vazia');
+ if(!confirm(`Esvaziar lixeira (${TRASH.length})? Não dá para desfazer.`))return;
+ for(const v of TRASH){await idbDel('trash',v.tid);if(v.fid)await idbDel('files',v.fid);}
+ TRASH=[];sel.clear();if(isTrash()){curFolder.videos=[];renderGrid();}
+ renderFolders();updateToolbar();
+}
+async function bootTrash(){
+ try{
+  const rows=await idbAll('trash');
+  rows.sort((a,b)=>b.at-a.at);
+  const files=await idbAll('files');
+  TRASH=rows.map(r=>{
+   let src=r.src,file=null;
+   if(r.hasBlob){const m=files.find(x=>x.fid===r.fid);if(m&&m.blob){file=m.blob;src=URL.createObjectURL(m.blob);}}
+   return {tid:r.tid,fid:r.fid,n:r.name,d:r.d,src:src,e:'🎥',file:file,fromId:r.fromId};
+  });
+  const imp=DB.find(f=>f.id==='f0');
+  for(const f of files){if(f.blob&&f.keep&&!imp.videos.some(v=>v.fid===f.fid)){imp.videos.push({n:f.name,d:f.d||'--:--',src:URL.createObjectURL(f.blob),e:'🎥',file:f.blob,fid:f.fid});}}
+ }catch(_){}
+ renderFolders();
+}
 function openSheet(a){if(!sel.size)return alert('Selecione 1+ arquivo');document.getElementById('sheetT').textContent=a+' '+sel.size+' arquivo(s) para...';const sf=document.getElementById('sheetFolders');sf.innerHTML='';DB.filter(f=>f!==curFolder).forEach(f=>{const b=document.createElement('button');b.style.background='#0A84FF';b.style.color='#fff';b.textContent='📁 '+f.name;b.onclick=()=>{const mv=document.getElementById('sheetT').textContent.startsWith('Mover');const items=[...sel].sort((x,y)=>y-x).map(i=>curFolder.videos[i]);if(mv)curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));items.reverse().forEach(v=>f.videos.push(v));sel.clear();closeSheet();toggleSelMode();renderFolders();alert('Concluído!');};sf.appendChild(b);});document.getElementById('sheet').classList.add('open');}
 function closeSheet(){document.getElementById('sheet').classList.remove('open');}
 // PLAYER
@@ -249,17 +314,18 @@ window.addEventListener('resize',()=>pokeControls());
 document.getElementById('fileInput').addEventListener('change',e=>{
 const files=[...e.target.files]; if(!files.length) return;
 const imp=DB.find(f=>f.id==='f0');
-files.forEach(f=>{
+files.forEach(async f=>{
 const url=URL.createObjectURL(f);
-const v={n:f.name,d:'--:--',src:url,e:'🎥',file:f};
-// dura real quando carregar metadata
-try{const tmp=document.createElement('video');tmp.preload='metadata';tmp.src=url;tmp.onloadedmetadata=()=>{v.d=fmt(tmp.duration);renderFolders();if(curFolder&&curFolder.id==='f0')renderGrid();};}catch(_){}
+const fid='f'+Date.now()+Math.floor(Math.random()*1e6);
+const v={n:f.name,d:'--:--',src:url,e:'🎥',file:f,fid:fid};
+try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:'--:--',keep:true});}catch(_){}
+try{const tmp=document.createElement('video');tmp.preload='metadata';tmp.src=url;tmp.onloadedmetadata=async()=>{v.d=fmt(tmp.duration);try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:v.d,keep:true});}catch(_){}renderFolders();if(curFolder&&curFolder.id==='f0')renderGrid();};}catch(_){}
 imp.videos.push(v);
 });
 e.target.value='';
 renderFolders();openFolder('f0');
 });
-renderFolders();renderGrid();
+renderFolders();renderGrid();bootTrash();
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
 </body>
