@@ -55,7 +55,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,sans-serif
 .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px 18px;overflow-y:auto}
 .thumb{aspect-ratio:9/13;border-radius:12px;background:#1c1c1e;position:relative;overflow:hidden;cursor:pointer;border:2px solid transparent}
 .thumb.sel{border-color:#0A84FF}
-.thumb .img{position:absolute;inset:0;background:linear-gradient(180deg,#333,#111);display:flex;align-items:center;justify-content:center;font-size:30px}
+.thumb .img{position:absolute;inset:0;background:linear-gradient(180deg,#333,#111) center/cover;display:flex;align-items:center;justify-content:center;font-size:30px}
 .thumb .dur{position:absolute;bottom:22px;right:6px;background:rgba(0,0,0,.75);font-size:10px;padding:2px 6px;border-radius:6px}
 .thumb .nm{position:absolute;bottom:0;left:0;right:0;font-size:10px;padding:6px;background:linear-gradient(transparent,rgba(0,0,0,.9));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .thumb .ck{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#0A84FF;display:none;align-items:center;justify-content:center;font-size:13px}
@@ -164,6 +164,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <div class="grid" id="grid"></div>
 <div class="toolbar" id="toolbar" style="display:none">
 <button class="del" onclick="bulk('deletar')">Lixeira</button>
+<button class="mov" onclick="shareSel()">Partilhar</button>
 <button class="mov" onclick="openSheet('Mover')">Mover</button>
 <button class="cpy" onclick="openSheet('Copiar')">Copiar</button>
 </div>
@@ -268,7 +269,7 @@ function renderGrid(){
  const c=document.createElement('div');c.className='count';c.textContent=`${arr.length} de ${curFolder.videos.length} vídeos • ${viewMode==='grid'?'miniaturas':'lista'}`;g.before(c);
  if(!arr.length){g.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#777;padding:26px">Nada aqui com esse filtro.</div>';return;}
  if(viewMode==='grid'){
-  arr.forEach(o=>{const t=document.createElement('div');t.className='thumb'+(sel.has(o.i)?' sel':'');t.innerHTML=`<div class="img">${o.v.e}</div><div class="dur">${o.v.d}</div><div class="nm">${(o.v.fromName&&isTrash()?'↩ '+o.v.fromName+' • ':'')+o.v.n}</div><div class="ck">✓</div>`;t.onclick=()=>{if(selMode){sel.has(o.i)?sel.delete(o.i):sel.add(o.i);renderGrid();updateToolbar();}else openVideoAt(o.i);};g.appendChild(t);});
+  arr.forEach(o=>{const t=document.createElement('div');t.className='thumb'+(sel.has(o.i)?' sel':'');const key=(o.v.fid||o.v.src);t.innerHTML=`<div class="img" data-tk="${key}">${o.v.e}</div><div class="dur">${o.v.d}</div><div class="nm">${(o.v.fromName&&isTrash()?'↩ '+o.v.fromName+' • ':'')+o.v.n}</div><div class="ck">✓</div>`;t.onclick=()=>{if(selMode){sel.has(o.i)?sel.delete(o.i):sel.add(o.i);renderGrid();updateToolbar();}else openVideoAt(o.i);};g.appendChild(t);paintThumb(t.querySelector('.img'),o.v);});
  }else{
   g.style.display='block';
   arr.forEach((o,k)=>{const r=document.createElement('div');r.className='lrow'+(sel.has(o.i)?' sel':'');const sz=o.v.sz?` <span style="color:#0A84FF;font-weight:400">• ${mb(o.v.sz)}</span>`:'';r.innerHTML=`<div class="ck2">${sel.has(o.i)?'✓':(k+1)}</div><div class="e">${o.v.e}</div><div class="n">${o.v.n}${sz}${o.v.fromName&&isTrash()?` <span style="color:#888;font-weight:400">• de ${o.v.fromName}</span>`:''}</div><div class="d">${o.v.d}</div>`;r.onclick=()=>{if(selMode){sel.has(o.i)?sel.delete(o.i):sel.add(o.i);renderGrid();updateToolbar();}else openVideoAt(o.i);};g.appendChild(r);});
@@ -364,6 +365,52 @@ async function bootTrash(){ try{
 }
 function openSheet(a){if(!sel.size)return alert('Selecione 1+ arquivo');document.getElementById('sheetT').textContent=a+' '+sel.size+' arquivo(s) para...';const sf=document.getElementById('sheetFolders');sf.innerHTML='';DB.filter(f=>f!==curFolder).forEach(f=>{const b=document.createElement('button');b.style.background='#0A84FF';b.style.color='#fff';b.textContent='📁 '+f.name;b.onclick=()=>{const mv=document.getElementById('sheetT').textContent.startsWith('Mover');const items=[...sel].sort((x,y)=>y-x).map(i=>curFolder.videos[i]);if(mv)curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));items.reverse().forEach(v=>f.videos.push(v));sel.clear();closeSheet();toggleSelMode();renderFolders();alert('Concluído!');};sf.appendChild(b);});document.getElementById('sheet').classList.add('open');}
 function closeSheet(){document.getElementById('sheet').classList.remove('open');}
+// Miniaturas reais: captura frame 1s do mp4 via canvas (ótimo em Importados)
+const thumbCache={};
+function paintThumb(el,v){
+ if(!el||!v||!v.src)return;
+ if(thumbCache[v.src]){el.style.backgroundImage=`url(${thumbCache[v.src]})`;el.textContent='';return;}
+ try{
+  const vdo=document.createElement('video');
+  vdo.muted=true;vdo.playsInline=true;vdo.preload='auto';vdo.src=v.src;
+  const to=setTimeout(()=>{vdo.src='';},9000);
+  vdo.addEventListener('loadeddata',()=>{try{vdo.currentTime=Math.min(1,(vdo.duration||2)-0.1);}catch(_){}});
+  vdo.addEventListener('seeked',()=>{
+   try{
+    const cv=document.createElement('canvas');cv.width=320;cv.height=200;
+    cv.getContext('2d').drawImage(vdo,0,0,320,200);
+    const url=cv.toDataURL('image/jpeg',0.6);
+    thumbCache[v.src]=url;el.style.backgroundImage=`url(${url})`;el.textContent='';
+   }catch(_){}
+   clearTimeout(to);vdo.src='';
+  },{once:true});
+  vdo.addEventListener('error',()=>{clearTimeout(to);},{once:true});
+ }catch(_){}
+}
+// Partilhar 1-N vídeos: WhatsApp, AirDrop, Mail, Arquivos… via share-sheet iOS
+async function shareSel(){
+ if(!sel.size)return alert('Selecione 1+ arquivo');
+ const idxs=[...sel];
+ const files=[];
+ for(const i of idxs){
+  const v=curFolder.videos[i];if(!v)continue;
+  try{
+   if(v.file instanceof File){files.push(v.file);}
+   else{
+    const r=await fetch(v.src);const b=await r.blob();
+    files.push(new File([b],v.n,{type:b.type||'video/mp4'}));
+   }
+  }catch(_){alert('Falha ao preparar '+v.n);}
+ }
+ if(!files.length)return;
+ if(navigator.canShare&&navigator.canShare({files:files})){
+  try{await navigator.share({files:files,title:'JrVideo'});}catch(_){}
+ }else{
+  // fallback: baixa os arquivos
+  files.forEach(f=>{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();});
+  alert('Share indisponível: arquivos baixados.');
+ }
+}
 // PLAYER
 const vid=document.getElementById('vid'),pp=document.getElementById('pp'),seek=document.getElementById('seek');
 function openVideo(i){curViewOrder=null;curIdx=i;ensureAudio();vid.src=curFolder.videos[i].src;vid.play();pp.textContent='⏸';show('s-player');applyVol();applyBri();pokeControls();}
