@@ -228,7 +228,10 @@ async function idbAll(store){const db=await idb();return new Promise((res)=>{con
 async function idbPut(store,val){const db=await idb();return new Promise((res)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(val);tx.oncomplete=()=>res();tx.onerror=()=>res();});}
 async function idbDel(store,key){const db=await idb();return new Promise((res)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);tx.oncomplete=()=>res();tx.onerror=()=>res();});}
 function isTrash(){return curFolder&&curFolder.id==='trash';}
-function renderFolders(){const el=document.getElementById('folders');el.innerHTML='';DB.forEach(f=>{const d=document.createElement('div');d.className='folder';d.innerHTML=`<div class="fstack">${f.icon}</div><div class="fmeta"><b>${f.name}</b><p>${f.videos.length} vídeos • mp4</p></div><span>›</span>`;d.onclick=()=>openFolder(f.id);el.appendChild(d);});const t=document.createElement('div');t.className='folder';t.innerHTML=`<div class="fstack">🗑️</div><div class="fmeta"><b>Lixeira</b><p>${TRASH.length} na lixeira</p></div><span>›</span>`;t.onclick=()=>openTrash();el.appendChild(t);}
+function mb(b){return (b/1048576).toFixed(b>=104857600?0:1)+' MB';}
+function trashMB(){return TRASH.reduce((s,v)=>s+(v.sz||0),0);}
+async function appMB(){try{const e=await navigator.storage.estimate();return e.usage||0;}catch(_){return 0;}}
+function renderFolders(){const el=document.getElementById('folders');el.innerHTML='';DB.forEach(f=>{const d=document.createElement('div');d.className='folder';d.innerHTML=`<div class="fstack">${f.icon}</div><div class="fmeta"><b>${f.name}</b><p>${f.videos.length} vídeos • mp4</p></div><span>›</span>`;d.onclick=()=>openFolder(f.id);el.appendChild(d);});const t=document.createElement('div');t.className='folder';const tm=trashMB();t.innerHTML=`<div class="fstack">🗑️</div><div class="fmeta"><b>Lixeira</b><p>${TRASH.length} na lixeira${tm?' • '+mb(tm):''}</p></div><span>›</span>`;t.onclick=()=>openTrash();el.appendChild(t);}
 function openFolder(id){curFolder=DB.find(f=>f.id===id);selMode=false;sel.clear();document.getElementById('toolbar').style.display='none';document.getElementById('trashtoolbar').style.display='none';selBtn.textContent='Selecionar';document.getElementById('fname').textContent=curFolder.name;renderGrid();updateToolbar();show('s-folder');}
 function openTrash(){curFolder={id:'trash',name:'Lixeira',videos:TRASH};selMode=false;sel.clear();document.getElementById('toolbar').style.display='none';document.getElementById('trashtoolbar').style.display='none';selBtn.textContent='Selecionar';document.getElementById('fname').textContent='🗑️ Lixeira';renderGrid();updateToolbar();show('s-folder');}
 // Visao organizada: grade/lista + ordenacao + filtro
@@ -260,7 +263,7 @@ function renderGrid(){
   arr.forEach(o=>{const t=document.createElement('div');t.className='thumb'+(sel.has(o.i)?' sel':'');t.innerHTML=`<div class="img">${o.v.e}</div><div class="dur">${o.v.d}</div><div class="nm">${(o.v.fromName&&isTrash()?'↩ '+o.v.fromName+' • ':'')+o.v.n}</div><div class="ck">✓</div>`;t.onclick=()=>{if(selMode){sel.has(o.i)?sel.delete(o.i):sel.add(o.i);renderGrid();updateToolbar();}else openVideoAt(o.i);};g.appendChild(t);});
  }else{
   g.style.display='block';
-  arr.forEach((o,k)=>{const r=document.createElement('div');r.className='lrow'+(sel.has(o.i)?' sel':'');r.innerHTML=`<div class="ck2">${sel.has(o.i)?'✓':(k+1)}</div><div class="e">${o.v.e}</div><div class="n">${o.v.n}${o.v.fromName&&isTrash()?` <span style="color:#888;font-weight:400">• de ${o.v.fromName}</span>`:''}</div><div class="d">${o.v.d}</div>`;r.onclick=()=>{if(selMode){sel.has(o.i)?sel.delete(o.i):sel.add(o.i);renderGrid();updateToolbar();}else openVideoAt(o.i);};g.appendChild(r);});
+  arr.forEach((o,k)=>{const r=document.createElement('div');r.className='lrow'+(sel.has(o.i)?' sel':'');const sz=o.v.sz?` <span style="color:#0A84FF;font-weight:400">• ${mb(o.v.sz)}</span>`:'';r.innerHTML=`<div class="ck2">${sel.has(o.i)?'✓':(k+1)}</div><div class="e">${o.v.e}</div><div class="n">${o.v.n}${sz}${o.v.fromName&&isTrash()?` <span style="color:#888;font-weight:400">• de ${o.v.fromName}</span>`:''}</div><div class="d">${o.v.d}</div>`;r.onclick=()=>{if(selMode){sel.has(o.i)?sel.delete(o.i):sel.add(o.i);renderGrid();updateToolbar();}else openVideoAt(o.i);};g.appendChild(r);});
   return;
  }
  g.style.display='';
@@ -278,19 +281,23 @@ function updateToolbar(){const tt=document.getElementById('trashtoolbar'),tb=doc
 async function bulk(a){
  if(!sel.size)return alert('Selecione 1+ arquivo');
  if(isTrash()){
-  if(!confirm(`Apagar definitivo ${sel.size} da lixeira?`))return;
+  const tot=TRASH.filter((_,i)=>sel.has(i)).reduce((s,v)=>s+(v.sz||0),0);
+  if(!confirm(`Apagar definitivo ${sel.size} da lixeira?${tot?' ≈ '+mb(tot)+' liberados do aparelho.':''}`))return;
   const idxs=[...sel].sort((x,y)=>y-x);
   for(const i of idxs){const v=TRASH[i];await idbDel('trash',v.tid);if(v.fid)await idbDel('files',v.fid);TRASH.splice(i,1);}
-  sel.clear();curFolder.videos=TRASH;renderGrid();renderFolders();updateToolbar();return;
+  sel.clear();curFolder.videos=TRASH;renderGrid();renderFolders();updateToolbar();
+  alert(tot?`Apagado permanente. ≈ ${mb(tot)} liberados.`:'Apagado permanente.');
+  return;
  }
  if(a==='deletar'&&confirm(`Mover ${sel.size} para a Lixeira?`)){
   const idxs=[...sel].sort((x,y)=>y-x);
   for(const i of idxs){
    const v=curFolder.videos[i];
-   const rec={tid:'t'+Date.now()+Math.floor(Math.random()*1e6),fid:v.fid||null,name:v.n,d:v.d,src:v.file?null:v.src,fromId:curFolder.id,at:Date.now(),hasBlob:!!v.file};
-   if(v.file){await idbPut('files',{fid:v.fid,blob:v.file,name:v.n,d:v.d,keep:true});}
+   const sz=v.sz||(v.file?v.file.size||0:0);
+   const rec={tid:'t'+Date.now()+Math.floor(Math.random()*1e6),fid:v.fid||null,name:v.n,d:v.d,src:v.file?null:v.src,fromId:curFolder.id,at:Date.now(),hasBlob:!!v.file,sz:sz};
+   if(v.file){await idbPut('files',{fid:v.fid,blob:v.file,name:v.n,d:v.d,keep:true,size:sz});}
    await idbPut('trash',rec);
-   TRASH.unshift({tid:rec.tid,fid:rec.fid,n:rec.name,d:rec.d,src:rec.src||v.src,e:v.e||'🎥',file:v.file||null,fromId:rec.fromId});
+   TRASH.unshift({tid:rec.tid,fid:rec.fid,n:rec.name,d:rec.d,src:rec.src||v.src,e:v.e||'🎥',file:v.file||null,fromId:rec.fromId,sz:sz});
   }
   curFolder.videos=curFolder.videos.filter((_,i)=>!sel.has(i));
   sel.clear();renderGrid();renderFolders();updateToolbar();
@@ -302,17 +309,19 @@ async function restoreSel(){
  for(const i of idxs){
   const v=TRASH[i];
   const dest=DB.find(f=>f.id===v.fromId)||DB.find(f=>f.id==='f0')||DB[0];
-  dest.videos.push({n:v.n,d:v.d,src:v.src,e:'🎥',file:v.file||null,fid:v.fid||null});
+  dest.videos.push({n:v.n,d:v.d,src:v.src,e:'🎥',file:v.file||null,fid:v.fid||null,sz:v.sz||0});
   await idbDel('trash',v.tid);TRASH.splice(i,1);
  }
  sel.clear();curFolder.videos=TRASH;renderGrid();renderFolders();updateToolbar();alert('Restaurado!');
 }
 async function emptyTrash(){
  if(!TRASH.length)return alert('Lixeira vazia');
- if(!confirm(`Esvaziar lixeira (${TRASH.length})? Não dá para desfazer.`))return;
+ const tot=trashMB();
+ if(!confirm(`Esvaziar lixeira (${TRASH.length})?${tot?' ≈ '+mb(tot)+' liberados do aparelho.':''} Não dá para desfazer.`))return;
  for(const v of TRASH){await idbDel('trash',v.tid);if(v.fid)await idbDel('files',v.fid);}
  TRASH=[];sel.clear();if(isTrash()){curFolder.videos=[];renderGrid();}
  renderFolders();updateToolbar();
+ alert(tot?`Lixeira esvaziada. ≈ ${mb(tot)} liberados.`:'Lixeira esvaziada.');
 }
 async function bootTrash(){
  try{
@@ -322,10 +331,10 @@ async function bootTrash(){
   TRASH=rows.map(r=>{
    let src=r.src,file=null;
    if(r.hasBlob){const m=files.find(x=>x.fid===r.fid);if(m&&m.blob){file=m.blob;src=URL.createObjectURL(m.blob);}}
-   return {tid:r.tid,fid:r.fid,n:r.name,d:r.d,src:src,e:'🎥',file:file,fromId:r.fromId};
+   return {tid:r.tid,fid:r.fid,n:r.name,d:r.d,src:src,e:'🎥',file:file,fromId:r.fromId,sz:r.sz||(file?file.size||0:0)};
   });
   const imp=DB.find(f=>f.id==='f0');
-  for(const f of files){if(f.blob&&f.keep&&!imp.videos.some(v=>v.fid===f.fid)){imp.videos.push({n:f.name,d:f.d||'--:--',src:URL.createObjectURL(f.blob),e:'🎥',file:f.blob,fid:f.fid});}}
+  for(const f of files){if(f.blob&&f.keep&&!imp.videos.some(v=>v.fid===f.fid)){imp.videos.push({n:f.name,d:f.d||'--:--',src:URL.createObjectURL(f.blob),e:'🎥',file:f.blob,fid:f.fid,sz:f.size||f.blob.size||0});}}
  }catch(_){}
  renderFolders();
 }
@@ -448,13 +457,13 @@ for(let i=0;i<files.length;i++){
  tx.textContent=`Arquivo ${i+1} de ${files.length} — ${f.name} — Aguarde o término`;
  const url=URL.createObjectURL(f);
  const fid='f'+Date.now()+Math.floor(Math.random()*1e6);
- const v={n:f.name,d:'--:--',src:url,e:'🎥',file:f,fid:fid};
+ const v={n:f.name,d:'--:--',src:url,e:'🎥',file:f,fid:fid,sz:f.size||0};
  imp.videos.push(v);renderFolders();
- try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:'--:--',keep:true});}catch(_){}
+ try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:'--:--',keep:true,size:f.size||0});}catch(_){}
  await new Promise(res=>{
   try{
    const tmp=document.createElement('video');tmp.preload='metadata';tmp.src=url;
-   const done=async()=>{v.d=fmt(tmp.duration||0);try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:v.d,keep:true});}catch(_){}res();};
+   const done=async()=>{v.d=fmt(tmp.duration||0);try{await idbPut('files',{fid:fid,blob:f,name:f.name,d:v.d,keep:true,size:f.size||0});}catch(_){}res();};
    tmp.onloadedmetadata=done;tmp.onerror=()=>res();setTimeout(res,8000);
   }catch(_){res();}
  });
