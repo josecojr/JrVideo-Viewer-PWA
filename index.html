@@ -32,7 +32,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,sans-serif
  #zL{left:0}
  #zR{right:64px}
  .side{top:0;bottom:0;background:transparent}
- .ctrl{transition:opacity .3s;background:rgba(0,0,0,.18);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid transparent;border-radius:20px;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom, 0px) + 8px);padding:8px 16px calc(env(safe-area-inset-bottom, 0px) + 10px);opacity:.94}
+ .ctrl{transition:opacity .3s;background:rgba(0,0,0,.05);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border:1px solid transparent;border-radius:20px;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom, 0px) + 8px);padding:8px 16px calc(env(safe-area-inset-bottom, 0px) + 10px);opacity:.94}
  .ctrl.hidden{opacity:0;pointer-events:none}
  .side .sbtn{background:rgba(15,15,18,.32);border-color:rgba(255,255,255,.08)}
  .prow .pbtn{opacity:.88}
@@ -73,7 +73,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,sans-serif
 #zR::after{content:'🔊'}
 .side{position:absolute;right:0;top:0;bottom:0;width:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:linear-gradient(90deg,transparent,rgba(0,0,0,.55));z-index:9}
 .sbtn{width:46px;height:46px;border-radius:50%;background:rgba(30,30,32,.85);border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:#fff}
-.ctrl{position:absolute;left:0;right:0;bottom:0;background:rgba(12,12,14,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,.1);padding:10px 16px calc(env(safe-area-inset-bottom, 0px) + 14px);z-index:10}
+.ctrl{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.05);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border-top:1px solid rgba(255,255,255,.04);padding:10px 16px calc(env(safe-area-inset-bottom, 0px) + 14px);z-index:10}
 .scrub{display:flex;align-items:center;gap:8px;font-size:11px;color:#ddd;margin-bottom:8px}
 input[type=range]{flex:1;accent-color:#0A84FF;height:22px}
 .prow{display:flex;align-items:center;justify-content:center;gap:20px}
