@@ -145,6 +145,9 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 .back{cursor:pointer;color:#0A84FF;font-size:16px}
 .sheet{position:absolute;left:0;right:0;bottom:0;background:#1c1c1e;border-radius:20px 20px 0 0;padding:18px 18px 40px;display:none;z-index:20}
 .sheet.open{display:block}
+#ytbox{position:relative;width:100%;aspect-ratio:16/9;background:#000;flex-shrink:0}
+#ytbox iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+#yctrl{margin:0 12px;border-radius:18px}
 .sheet button{width:100%;padding:13px;border-radius:12px;border:none;margin-top:8px;font-size:15px;font-weight:600;cursor:pointer}
 </style>
 </head>
@@ -159,6 +162,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/*" multiple style="display:none">
 <div class="search">🔍 Buscar pastas e vídeos</div>
 <div id="folders"></div>
+<div class="folder" onclick="openYT()"><div class="fstack">▶️</div><div class="fmeta"><b>YouTube</b><p id="ytSub">Cole link e assista sem pausa por inatividade</p></div><span>›</span></div>
 <div class="folder" onclick="openOriginals()"><div class="fstack">📋</div><div class="fmeta"><b>Originais no telefone</b><p id="origSub">Toque para ver a lista e liberar espaço</p></div><span>›</span></div>
 <div class="sheet" id="origSheet">
 <h3>📋 Originais importados</h3>
@@ -167,7 +171,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <button style="background:#0A84FF;color:#fff" onclick="copyOriginals()">Copiar lista de nomes</button>
 <button style="background:#2c2c2e;color:#fff" onclick="document.getElementById('origSheet').classList.remove('open')">Fechar</button>
 </div>
-<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v21</span></div>
+<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v22</span></div>
 </div>
 
 <!-- TELA B -->
@@ -204,6 +208,33 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <div id="sheetFolders"></div>
 <button style="background:#2c2c2e;color:#fff" onclick="closeSheet()">Cancelar</button>
 </div>
+</div>
+
+<!-- TELA YT -->
+<div class="screen" id="s-yt">
+<div class="nav"><span class="back" onclick="ytBack()">‹ Voltar</span><h2 style="font-size:20px">▶ YouTube</h2></div>
+<div class="viewbar">
+<input id="yturl" placeholder="Cole link ou ID do YouTube…" inputmode="url">
+<button class="btn" onclick="ytAdd()">+ Fila</button>
+</div>
+<div id="ytbox"><div id="ytplayer"></div></div>
+<div class="ctrl" id="yctrl" style="position:relative">
+<div class="scrub"><span id="ytCur">00:00</span><input type="range" id="yseek" value="0" min="0" max="1000"><span id="ytTot">00:00</span></div>
+<div class="prow">
+<button class="pbtn prev" onclick="ytStep(-1)" title="Anterior">◂◂</button>
+<button class="pbtn main" id="ypp" onclick="ytToggle()">▶</button>
+<button class="pbtn next" onclick="ytStep(1)" title="Próximo">▸▸</button>
+</div>
+<div class="mini">
+<button onclick="ytVol(-10)">🔉 −</button>
+<button onclick="ytVol(10)">🔊 +</button>
+<button onclick="ytBri()">☀️ Brilho</button>
+<button onclick="ytFull()">⛶ Tela</button>
+</div>
+<div class="hint">Pausa por inatividade é retomada sozinha • Anúncios do YouTube podem aparecer</div>
+</div>
+<div class="count" id="ytCount"></div>
+<div id="ytlist" style="flex:1;min-height:0;overflow-y:auto;padding-bottom:40px"></div>
 </div>
 
 <!-- TELA C -->
@@ -281,7 +312,7 @@ function setSort(v){sortMode=v;try{localStorage.setItem('jrvideo.sort',v);}catch
 function toggleView(){viewMode=viewMode==='cards'?'list':'cards';try{localStorage.setItem('jrvideo.view',viewMode);}catch(_){}syncViewBtn();renderGrid();}
 function syncViewBtn(){const b=document.getElementById('viewBtn');if(b)b.textContent=viewMode==='cards'?'☰ Lista':'🎬 Cartões';const s=document.getElementById('sortSel');if(s)s.value=sortMode;}
 function durSec(d){if(!d||d==='--:--')return -1;const p=String(d).split(':');if(p.length===2)return (+p[0])*60+(+p[1]);if(p.length===3)return (+p[0])*3600+(+p[1])*60+(+p[2]);return -1;}
-const APP_VERSION='v21';
+const APP_VERSION='v22';
 // Vistos: continua de onde parou + selo VISTO + barra de progresso
 function wkey(v){return v.fid||v.src;}
 function wget(){try{return JSON.parse(localStorage.getItem('jrvideo.watched')||'{}');}catch(_){return {};}}
@@ -636,6 +667,79 @@ e.target.value='';
 hideLoad();
 renderFolders();openFolder('f0');
 });
+// ABA YOUTUBE: fila + nossos controles + anti-pausa por inatividade
+let ytQ=[];try{ytQ=JSON.parse(localStorage.getItem('jrvideo.ytq')||'[]');}catch(_){ytQ=[];}
+let ytIdx=0,ytP=null,ytReady=false,ytUserPause=false,ytLastAct=0,ytScrub=false,ytBriLv=0;
+function ytSave(){try{localStorage.setItem('jrvideo.ytq',JSON.stringify(ytQ.slice(0,100)));}catch(_){}}
+function ytID(s){s=(s||'').trim();if(!s)return null;let m=s.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/);if(m)return m[1];if(/^[A-Za-z0-9_-]{6,}$/.test(s))return s;return null;}
+function openYT(){show('s-yt');ytRender();ytAPI();}
+function ytBack(){try{if(ytP&&ytReady)ytP.pauseVideo();}catch(_){}show('s-home');}
+function ytAdd(){
+ const id=ytID(document.getElementById('yturl').value);
+ if(!id)return alert('Link inválido. Cole um link do YouTube.');
+ if(ytQ.some(q=>q.id===id))return alert('Já está na fila.');
+ ytQ.push({id:id});ytSave();document.getElementById('yturl').value='';ytRender();
+ if(ytQ.length===1)ytLoad(0);
+}
+function ytDel(i){ytQ.splice(i,1);ytSave();if(ytIdx>=ytQ.length)ytIdx=Math.max(0,ytQ.length-1);ytRender();}
+function ytRender(){
+ const L=document.getElementById('ytlist');L.innerHTML='';
+ document.getElementById('ytCount').textContent=`${ytQ.length} na fila`;
+ document.getElementById('ytSub').textContent=ytQ.length?`${ytQ.length} na fila`:'Cole link e assista sem pausa por inatividade';
+ ytQ.forEach((q,k)=>{const r=document.createElement('div');r.className='lrow'+(k===ytIdx?' sel':'');r.innerHTML=`<div class="ck2">${k===ytIdx?'▶':(k+1)}</div><div class="e">▶️</div><div class="n">youtube.com/watch?v=${q.id}</div><div class="d" onclick="event.stopPropagation();ytDel(${k})" style="color:#FF453A;background:rgba(255,69,58,.14)">✕</div>`;r.onclick=()=>ytLoad(k);L.appendChild(r);});
+}
+function ytAPI(){
+ if(window.YT&&window.YT.Player){ytInit();return;}
+ if(document.getElementById('ytapi'))return;
+ const s=document.createElement('script');s.id='ytapi';s.src='https://www.youtube.com/iframe_api';
+ document.head.appendChild(s);
+}
+window.onYouTubeIframeAPIReady=function(){ytInit();};
+function ytInit(){
+ if(ytP||!document.getElementById('ytplayer'))return;
+ ytP=new YT.Player('ytplayer',{width:'100%',height:'100%',playerVars:{playsinline:1,rel:0},events:{onReady:()=>{ytReady=true;if(ytQ.length)ytLoad(ytIdx);},onStateChange:ytState}});
+}
+function ytLoad(i){
+ if(!ytQ.length)return;
+ ytIdx=(i+ytQ.length)%ytQ.length;ytRender();ytAPI();
+ if(!ytReady)return;
+ ytUserPause=false;ytLastAct=Date.now();
+ try{ytP.loadVideoById(ytQ[ytIdx].id);}catch(_){}
+ document.getElementById('ypp').textContent='⏸';
+}
+function ytToggle(){
+ if(!ytReady||!ytQ.length)return;
+ ytLastAct=Date.now();
+ try{
+  if(ytP.getPlayerState()===YT.PlayerState.PLAYING){ytUserPause=true;ytP.pauseVideo();document.getElementById('ypp').textContent='▶';}
+  else{ytUserPause=false;ytP.playVideo();document.getElementById('ypp').textContent='⏸';}
+ }catch(_){}
+}
+function ytStep(d){if(ytQ.length)ytLoad(ytIdx+d);}
+function ytState(e){
+ const S=YT.PlayerState;
+ if(e.data===S.PLAYING)document.getElementById('ypp').textContent='⏸';
+ else if(e.data===S.PAUSED){
+  document.getElementById('ypp').textContent='▶';
+  // anti-pausa por inatividade: retoma sozinho, salvo pausa do usuário ou fim
+  if(!ytUserPause&&Date.now()-ytLastAct>2500){setTimeout(()=>{try{if(ytP&&ytP.getPlayerState()===S.PAUSED&&!ytUserPause)ytP.playVideo();}catch(_){}},900);}
+ }
+ else if(e.data===S.ENDED){ytStep(1);}
+}
+function ytVol(d){if(!ytReady)return;try{const v=Math.min(100,Math.max(0,ytP.getVolume()+d));ytP.setVolume(v);ovC('Volume '+v+'%');}catch(_){}}
+function ytBri(){ytBriLv=(ytBriLv+1)%3;const f=[1,1.25,0.7][ytBriLv];document.getElementById('ytbox').style.filter='brightness('+f+')';ovC('Brilho '+Math.round(f*100)+'%');}
+function ytFull(){const b=document.getElementById('ytbox');try{if(b.requestFullscreen)b.requestFullscreen();else if(b.webkitEnterFullscreen)b.webkitEnterFullscreen();}catch(_){}}
+const yseek=document.getElementById('yseek');
+yseek.addEventListener('pointerdown',()=>{ytScrub=true;});
+yseek.addEventListener('pointerup',()=>{if(ytReady){try{const d=ytP.getDuration();ytP.seekTo(yseek.value/1000*d,true);}catch(_){}}ytScrub=false;ytLastAct=Date.now();});
+setInterval(()=>{
+ if(!ytReady||!ytP||ytScrub)return;
+ try{
+  const c=ytP.getCurrentTime()||0,d=ytP.getDuration()||0;
+  if(d>0){yseek.value=c/d*1000;yseek.style.setProperty('--p',(c/d*100)+'%');}
+  document.getElementById('ytCur').textContent=fmt(c);document.getElementById('ytTot').textContent=fmt(d);
+ }catch(_){}
+},500);
 renderFolders();renderGrid();applyBri();paintVol();
 showLoad('Abrindo JrVideo…','Carregando biblioteca — Aguarde o término',0.4);
 bootTrash().then(()=>{hideLoad();}).catch(()=>{hideLoad();});
@@ -643,3 +747,4 @@ bootTrash().then(()=>{hideLoad();}).catch(()=>{hideLoad();});
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
 </body>
 </html>
+
