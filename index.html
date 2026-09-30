@@ -145,8 +145,13 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 .back{cursor:pointer;color:#0A84FF;font-size:16px}
 .sheet{position:absolute;left:0;right:0;bottom:0;background:#1c1c1e;border-radius:20px 20px 0 0;padding:18px 18px 40px;display:none;z-index:20}
 .sheet.open{display:block}
-#ytbox{position:relative;width:100%;aspect-ratio:16/9;background:#000;flex-shrink:0}
+#ytbox{position:relative;width:100%;aspect-ratio:16/9;background:#000;flex-shrink:0;touch-action:none}
 #ytbox iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+#ytbox.ytbig{position:fixed;inset:0;z-index:50;aspect-ratio:auto}
+.ytov{position:absolute;top:24%;left:50%;transform:translateX(-50%);min-width:170px;text-align:center;padding:10px 16px;background:rgba(15,15,18,.85);border:1px solid rgba(255,255,255,.14);border-radius:16px;font-size:18px;display:none;z-index:8}
+.ytov .bar{height:6px;border-radius:4px;background:#2c2c30;margin-top:8px;overflow:hidden}
+.ytov .fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#0A84FF,#5E5CE6)}
+#ytVL{margin-left:-100px}#ytVR{margin-left:100px}
 .ytback{position:absolute;top:8px;left:8px;z-index:5;width:40px;height:40px;border-radius:50%;background:rgba(15,15,18,.65);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer}
 #yctrl{margin:0 12px;border-radius:18px}
 .sheet button{width:100%;padding:13px;border-radius:12px;border:none;margin-top:8px;font-size:15px;font-weight:600;cursor:pointer}
@@ -172,7 +177,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <button style="background:#0A84FF;color:#fff" onclick="copyOriginals()">Copiar lista de nomes</button>
 <button style="background:#2c2c2e;color:#fff" onclick="document.getElementById('origSheet').classList.remove('open')">Fechar</button>
 </div>
-<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v25</span></div>
+<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v26</span></div>
 </div>
 
 <!-- TELA B -->
@@ -225,7 +230,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <button class="btn" onclick="ytOpen()">🌐 YouTube</button>
 </div>
 <div id="ytbrowse" style="flex-shrink:0;max-height:300px;overflow-y:auto"></div>
-<div id="ytbox"><div id="ytplayer"></div><button class="ytback" onclick="ytBack()" title="Voltar">‹</button></div>
+<div id="ytbox"><div id="ytplayer"></div><button class="ytback" onclick="ytBackBtn()" title="Voltar">‹</button><div class="ytov" id="ytVL">☀️ <span id="ytBriTxt">80%</span><div class="bar"><div class="fill" id="ytBriFill" style="width:80%"></div></div></div><div class="ytov" id="ytVR">🔊 <span id="ytVolTxt">80%</span><div class="bar"><div class="fill" id="ytVolFill" style="width:80%"></div></div></div></div>
 <div class="ctrl" id="yctrl" style="position:relative">
 <div class="scrub"><span id="ytCur">00:00</span><input type="range" id="yseek" value="0" min="0" max="1000"><span id="ytTot">00:00</span></div>
 <div class="prow">
@@ -320,7 +325,7 @@ function setSort(v){sortMode=v;try{localStorage.setItem('jrvideo.sort',v);}catch
 function toggleView(){viewMode=viewMode==='cards'?'list':'cards';try{localStorage.setItem('jrvideo.view',viewMode);}catch(_){}syncViewBtn();renderGrid();}
 function syncViewBtn(){const b=document.getElementById('viewBtn');if(b)b.textContent=viewMode==='cards'?'☰ Lista':'🎬 Cartões';const s=document.getElementById('sortSel');if(s)s.value=sortMode;}
 function durSec(d){if(!d||d==='--:--')return -1;const p=String(d).split(':');if(p.length===2)return (+p[0])*60+(+p[1]);if(p.length===3)return (+p[0])*3600+(+p[1])*60+(+p[2]);return -1;}
-const APP_VERSION='v25';
+const APP_VERSION='v26';
 // Vistos: continua de onde parou + selo VISTO + barra de progresso
 function wkey(v){return v.fid||v.src;}
 function wget(){try{return JSON.parse(localStorage.getItem('jrvideo.watched')||'{}');}catch(_){return {};}}
@@ -714,7 +719,7 @@ async function ytBrowse(path,label){
    const th=(r.videoThumbnails&&r.videoThumbnails.length?r.videoThumbnails.sort((a,b)=>a.width-b.width)[0].url:'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg');
    const d=document.createElement('div');d.className='lrow';
    d.innerHTML=`<div class="e" style="width:96px;height:54px;border-radius:8px;background:#000 center/cover url('${th}')"></div><div class="n">${r.title||id}<br><span style="color:#888;font-weight:400">${r.author||''} • ${r.lengthSeconds?ytDur(r.lengthSeconds):''}</span></div><div class="d">▶</div>`;
-   d.onclick=()=>{if(!ytQ.some(q=>q.id===id)){ytQ.push({id:id,title:r.title||id});ytSave();}ytRender();ytLoad(ytQ.findIndex(q=>q.id===id));document.getElementById('ytbox').scrollIntoView();};
+   d.onclick=()=>{if(!ytQ.some(q=>q.id===id)){ytQ.push({id:id,title:r.title||id});ytSave();}ytRender();ytLoad(ytQ.findIndex(q=>q.id===id));ytBig(true);};
    B.appendChild(d);
   });
  }catch(_){
@@ -727,7 +732,9 @@ let ytIdx=0,ytP=null,ytReady=false,ytUserPause=false,ytLastAct=0,ytScrub=false,y
 function ytSave(){try{localStorage.setItem('jrvideo.ytq',JSON.stringify(ytQ.slice(0,100)));}catch(_){}}
 function ytID(s){s=(s||'').trim();if(!s)return null;let m=s.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/);if(m)return m[1];if(/^[A-Za-z0-9_-]{6,}$/.test(s))return s;return null;}
 function openYT(){show('s-yt');ytRender();ytAPI();}
-function ytBack(){try{if(ytP&&ytReady)ytP.pauseVideo();}catch(_){}show('s-home');}
+function ytBack(){try{if(ytP&&ytReady)ytP.pauseVideo();}catch(_){}document.getElementById('ytbox').classList.remove('ytbig');show('s-home');}
+function ytBackBtn(){const b=document.getElementById('ytbox');if(b.classList.contains('ytbig')){b.classList.remove('ytbig');}else ytBack();}
+function ytBig(on){const b=document.getElementById('ytbox');if(on===undefined)b.classList.toggle('ytbig');else b.classList.toggle('ytbig',!!on);}
 function ytAdd(){
  const id=ytID(document.getElementById('yturl').value);
  if(!id)return alert('Link inválido. Cole um link do YouTube.');
@@ -758,7 +765,8 @@ function ytLoad(i){
  ytIdx=(i+ytQ.length)%ytQ.length;ytRender();ytAPI();
  if(!ytReady)return;
  ytUserPause=false;ytLastAct=Date.now();
- try{ytP.loadVideoById(ytQ[ytIdx].id);}catch(_){}
+ try{ytP.loadVideoById(ytQ[ytIdx].id);ytP.setVolume(Math.round(ytV*100));}catch(_){}
+ ytApplyBri();
  document.getElementById('ypp').textContent='⏸';
 }
 function ytToggle(){
@@ -781,9 +789,34 @@ function ytState(e){
  }
  else if(e.data===S.ENDED){ytStep(1);}
 }
-function ytVol(d){if(!ytReady)return;ytLastAct=Date.now();try{const v=Math.min(100,Math.max(0,ytP.getVolume()+d));ytP.setVolume(v);ovC('Volume '+v+'%');}catch(_){}}
-function ytBri(){ytLastAct=Date.now();ytBriLv=(ytBriLv+1)%3;const f=[1,1.25,0.7][ytBriLv];document.getElementById('ytbox').style.filter='brightness('+f+')';ovC('Brilho '+Math.round(f*100)+'%');}
-function ytFull(){const b=document.getElementById('ytbox');try{if(b.requestFullscreen)b.requestFullscreen();else if(b.webkitEnterFullscreen)b.webkitEnterFullscreen();}catch(_){}}
+function ytVol(d){if(!ytReady)return;ytLastAct=Date.now();ytV=Math.min(1,Math.max(0,ytV+(d>0?0.05:-0.05)));try{ytP.setVolume(Math.round(ytV*100));}catch(_){}ytPaintVol();}
+function ytBri(){ytLastAct=Date.now();ytB=Math.min(1,Math.max(0,ytB+0.1));if(ytB>=1)ytB=0;ytApplyBri();}
+function ytFull(){ytBig();}
+// Gestos iguais aos locais: esquerda brilho, direita volume, horizontal busca
+let ytV=0.8,ytB=0.8;
+function ytPaintVol(){document.getElementById('ytVolTxt').textContent=Math.round(ytV*100)+'%';document.getElementById('ytVolFill').style.width=(ytV*100)+'%';}
+function ytPaintBri(){document.getElementById('ytBriTxt').textContent=Math.round(ytB*100)+'%';document.getElementById('ytBriFill').style.width=(ytB*100)+'%';}
+function ytApplyBri(){document.getElementById('ytbox').style.filter='brightness('+(0.25+ytB*1.05).toFixed(2)+')';ytPaintBri();}
+function ytShowOv(id){const o=document.getElementById(id);o.style.display='block';clearTimeout(o._t);o._t=setTimeout(()=>o.style.display='none',900);}
+(function(){
+ const box=document.getElementById('ytbox');
+ let x0=0,y0=0,mode=null;
+ box.addEventListener('touchstart',e=>{const t=e.touches[0];x0=t.clientX;y0=t.clientY;mode=null;},{passive:true});
+ box.addEventListener('touchmove',e=>{
+  const t=e.touches[0],dx=t.clientX-x0,dy=y0-t.clientY;
+  if(!mode){
+   if(Math.abs(dy)>14&&Math.abs(dy)>Math.abs(dx)){const r=box.getBoundingClientRect();mode=(x0-r.left)<r.width/2?'bri':'vol';}
+   else if(Math.abs(dx)>20&&Math.abs(dx)>Math.abs(dy))mode='seek';
+   else return;
+  }
+  e.preventDefault();ytLastAct=Date.now();
+  if(mode==='seek'){if(ytReady){try{const d=ytP.getDuration();ytP.seekTo(Math.min(Math.max(0,ytP.getCurrentTime()+dx/35),d||0),true);}catch(_){}x0=t.clientX;y0=t.clientY;return;}}
+  const h=box.getBoundingClientRect().height||200,d=dy/Math.max(120,h);
+  if(mode==='bri'){ytB=Math.min(1,Math.max(0,ytB+d));ytApplyBri();ytShowOv('ytVL');}
+  else{ytV=Math.min(1,Math.max(0,ytV+d));try{ytP.setVolume(Math.round(ytV*100));}catch(_){}ytPaintVol();ytShowOv('ytVR');}
+  y0=t.clientY;
+ },{passive:false});
+})();
 const yseek=document.getElementById('yseek');
 yseek.addEventListener('pointerdown',()=>{ytScrub=true;});
 yseek.addEventListener('pointerup',()=>{if(ytReady){try{const d=ytP.getDuration();ytP.seekTo(yseek.value/1000*d,true);}catch(_){}}ytScrub=false;ytLastAct=Date.now();});
@@ -802,6 +835,7 @@ bootTrash().then(()=>{hideLoad();}).catch(()=>{hideLoad();});
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
 </body>
 </html>
+
 
 
 
