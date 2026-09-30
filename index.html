@@ -171,7 +171,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <button style="background:#0A84FF;color:#fff" onclick="copyOriginals()">Copiar lista de nomes</button>
 <button style="background:#2c2c2e;color:#fff" onclick="document.getElementById('origSheet').classList.remove('open')">Fechar</button>
 </div>
-<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v23</span></div>
+<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v24</span></div>
 </div>
 
 <!-- TELA B -->
@@ -221,6 +221,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <input id="ytq" placeholder="🔍 Buscar no YouTube…" onkeydown="if(event.key==='Enter')ytSearch()">
 <button class="btn" onclick="ytSearch()">Buscar</button>
 <button class="btn" onclick="ytPopular()">Em alta</button>
+<button class="btn" onclick="ytOpen()">🌐 YouTube</button>
 </div>
 <div id="ytbrowse" style="flex-shrink:0;max-height:300px;overflow-y:auto"></div>
 <div id="ytbox"><div id="ytplayer"></div></div>
@@ -318,7 +319,7 @@ function setSort(v){sortMode=v;try{localStorage.setItem('jrvideo.sort',v);}catch
 function toggleView(){viewMode=viewMode==='cards'?'list':'cards';try{localStorage.setItem('jrvideo.view',viewMode);}catch(_){}syncViewBtn();renderGrid();}
 function syncViewBtn(){const b=document.getElementById('viewBtn');if(b)b.textContent=viewMode==='cards'?'☰ Lista':'🎬 Cartões';const s=document.getElementById('sortSel');if(s)s.value=sortMode;}
 function durSec(d){if(!d||d==='--:--')return -1;const p=String(d).split(':');if(p.length===2)return (+p[0])*60+(+p[1]);if(p.length===3)return (+p[0])*3600+(+p[1])*60+(+p[2]);return -1;}
-const APP_VERSION='v23';
+const APP_VERSION='v24';
 // Vistos: continua de onde parou + selo VISTO + barra de progresso
 function wkey(v){return v.fid||v.src;}
 function wget(){try{return JSON.parse(localStorage.getItem('jrvideo.watched')||'{}');}catch(_){return {};}}
@@ -674,7 +675,7 @@ hideLoad();
 renderFolders();openFolder('f0');
 });
 // Navegar no YouTube: busca e em alta via API pública (sem chave)
-const YT_API=['https://inv.nadeko.net/api/v1','https://invidious.nerdvpn.de/api/v1','https://iv.melmac.space/api/v1'];
+const YT_API=['https://invidious.f5.si/api/v1','https://invidious.darkness.services/api/v1','https://inv.nadeko.net/api/v1','https://invidious.nerdvpn.de/api/v1'];
 async function ytFetch(path){
  let err=null;
  for(const b of YT_API){
@@ -687,6 +688,12 @@ async function ytFetch(path){
  throw err||'offline';
 }
 function ytDur(s){s=+s||0;const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=Math.floor(s%60);return h?`${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}`:`${m}:${String(x).padStart(2,'0')}`;}
+function ytOpen(){
+ const q=(document.getElementById('ytq').value||'').trim();
+ const url=q?'https://www.youtube.com/results?search_query='+encodeURIComponent(q):'https://www.youtube.com/';
+ window.open(url,'_blank');
+ ovC('Navegue no YouTube, copie o link e cole no + Fila');
+}
 async function ytSearch(){
  const q=(document.getElementById('ytq').value||'').trim();
  if(!q)return alert('Digite o que buscar.');
@@ -793,5 +800,6 @@ bootTrash().then(()=>{hideLoad();}).catch(()=>{hideLoad();});
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
 </body>
 </html>
+
 
 
