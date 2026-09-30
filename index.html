@@ -181,7 +181,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <button style="background:#0A84FF;color:#fff" onclick="copyOriginals()">Copiar lista de nomes</button>
 <button style="background:#2c2c2e;color:#fff" onclick="document.getElementById('origSheet').classList.remove('open')">Fechar</button>
 </div>
-<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v27</span></div>
+<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v28</span></div>
 </div>
 
 <!-- TELA B -->
@@ -329,7 +329,7 @@ function setSort(v){sortMode=v;try{localStorage.setItem('jrvideo.sort',v);}catch
 function toggleView(){viewMode=viewMode==='cards'?'list':'cards';try{localStorage.setItem('jrvideo.view',viewMode);}catch(_){}syncViewBtn();renderGrid();}
 function syncViewBtn(){const b=document.getElementById('viewBtn');if(b)b.textContent=viewMode==='cards'?'☰ Lista':'🎬 Cartões';const s=document.getElementById('sortSel');if(s)s.value=sortMode;}
 function durSec(d){if(!d||d==='--:--')return -1;const p=String(d).split(':');if(p.length===2)return (+p[0])*60+(+p[1]);if(p.length===3)return (+p[0])*3600+(+p[1])*60+(+p[2]);return -1;}
-const APP_VERSION='v27';
+const APP_VERSION='v28';
 // Vistos: continua de onde parou + selo VISTO + barra de progresso
 function wkey(v){return v.fid||v.src;}
 function wget(){try{return JSON.parse(localStorage.getItem('jrvideo.watched')||'{}');}catch(_){return {};}}
@@ -723,7 +723,7 @@ async function ytBrowse(path,label){
    const th=(r.videoThumbnails&&r.videoThumbnails.length?r.videoThumbnails.sort((a,b)=>a.width-b.width)[0].url:'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg');
    const d=document.createElement('div');d.className='lrow';
    d.innerHTML=`<div class="e" style="width:96px;height:54px;border-radius:8px;background:#000 center/cover url('${th}')"></div><div class="n">${r.title||id}<br><span style="color:#888;font-weight:400">${r.author||''} • ${r.lengthSeconds?ytDur(r.lengthSeconds):''}</span></div><div class="d">▶</div>`;
-   d.onclick=()=>{if(!ytQ.some(q=>q.id===id)){ytQ.push({id:id,title:r.title||id});ytSave();}ytRender();ytLoad(ytQ.findIndex(q=>q.id===id));ytBig(true);};
+   d.onclick=()=>{try{if(!ytQ.some(q=>q.id===id)){ytQ.push({id:id,title:r.title||id});ytSave();}ytRender();ytLoad(ytQ.findIndex(q=>q.id===id));const bx=document.getElementById('ytbox');bx.classList.add('ytbig');if(!bx.classList.contains('ytbig'))bx.style.cssText+=';position:fixed;inset:0;z-index:50';ovC('Tela cheia — ‹ para voltar');}catch(_){}};
    B.appendChild(d);
   });
  }catch(_){
@@ -769,8 +769,8 @@ function ytLoad(i){
  ytIdx=(i+ytQ.length)%ytQ.length;ytRender();ytAPI();
  if(!ytReady)return;
  ytUserPause=false;ytLastAct=Date.now();
- try{ytP.loadVideoById(ytQ[ytIdx].id);ytP.setVolume(Math.round(ytV*100));}catch(_){}
- ytApplyBri();
+ try{ytP.loadVideoById(ytQ[ytIdx].id);}catch(_){}
+ ytApplyVol();ytApplyBri();
  document.getElementById('ypp').textContent='⏸';
 }
 function ytToggle(){
@@ -797,7 +797,18 @@ function ytVol(d){if(!ytReady)return;ytLastAct=Date.now();ytV=Math.min(1,Math.ma
 function ytBri(){ytLastAct=Date.now();ytB=Math.min(1,Math.max(0,ytB+0.1));if(ytB>=1)ytB=0;ytApplyBri();}
 function ytFull(){ytBig();}
 // Gestos iguais aos locais: esquerda brilho, direita volume, horizontal busca
+const YT_IS_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+let ytVHint=false;
 let ytV=0.8,ytB=0.8;
+function ytApplyVol(){
+ try{
+  if(!ytReady)return;
+  if(ytV<=0.01){ytP.mute();}
+  else{try{ytP.unMute();}catch(_){}ytP.setVolume(Math.round(ytV*100));}
+ }catch(_){}
+ ytPaintVol();
+ if(YT_IS_IOS&&!ytVHint){ytVHint=true;ovC('iPhone: volume fino nos botões laterais');}
+}
 function ytPaintVol(){document.getElementById('ytVolTxt').textContent=Math.round(ytV*100)+'%';document.getElementById('ytVolFill').style.width=(ytV*100)+'%';}
 function ytPaintBri(){document.getElementById('ytBriTxt').textContent=Math.round(ytB*100)+'%';document.getElementById('ytBriFill').style.width=(ytB*100)+'%';}
 function ytApplyBri(){document.getElementById('ytbox').style.filter='brightness('+(0.25+ytB*1.05).toFixed(2)+')';ytPaintBri();}
@@ -812,11 +823,11 @@ function ytBindZone(el,ovId,isVol){
   const t=e.touches[0],dy=y0-t.clientY;
   const h=el.getBoundingClientRect().height||200,d=dy/Math.max(120,h);
   ytLastAct=Date.now();
-  if(isVol){ytV=Math.min(1,Math.max(0,ytV+d));try{if(ytReady)ytP.setVolume(Math.round(ytV*100));}catch(_){}ytPaintVol();}
+  if(isVol){ytV=Math.min(1,Math.max(0,ytV+d));ytApplyVol();ytPaintVol();}
   else{ytB=Math.min(1,Math.max(0,ytB+d));ytApplyBri();}
   y0=t.clientY;show();
  },{passive:false});
- el.addEventListener('mousedown',e=>{y0=e.clientY;show();const mv=ev=>{const d=(y0-ev.clientY)/220;ytLastAct=Date.now();if(isVol){ytV=Math.min(1,Math.max(0,ytV+d));try{if(ytReady)ytP.setVolume(Math.round(ytV*100));}catch(_){}ytPaintVol();}else{ytB=Math.min(1,Math.max(0,ytB+d));ytApplyBri();}y0=ev.clientY;};const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);});
+ el.addEventListener('mousedown',e=>{y0=e.clientY;show();const mv=ev=>{const d=(y0-ev.clientY)/220;ytLastAct=Date.now();if(isVol){ytV=Math.min(1,Math.max(0,ytV+d));ytApplyVol();}else{ytB=Math.min(1,Math.max(0,ytB+d));ytApplyBri();}y0=ev.clientY;};const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);});
 }
 ytBindZone(document.getElementById('yzL'),'ytVL',false);
 ytBindZone(document.getElementById('yzR'),'ytVR',true);
@@ -838,6 +849,7 @@ bootTrash().then(()=>{hideLoad();}).catch(()=>{hideLoad();});
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
 </body>
 </html>
+
 
 
 
