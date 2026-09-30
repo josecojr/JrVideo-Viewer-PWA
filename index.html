@@ -171,7 +171,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <button style="background:#0A84FF;color:#fff" onclick="copyOriginals()">Copiar lista de nomes</button>
 <button style="background:#2c2c2e;color:#fff" onclick="document.getElementById('origSheet').classList.remove('open')">Fechar</button>
 </div>
-<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v22</span></div>
+<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v23</span></div>
 </div>
 
 <!-- TELA B -->
@@ -217,6 +217,12 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <input id="yturl" placeholder="Cole link ou ID do YouTube…" inputmode="url">
 <button class="btn" onclick="ytAdd()">+ Fila</button>
 </div>
+<div class="viewbar">
+<input id="ytq" placeholder="🔍 Buscar no YouTube…" onkeydown="if(event.key==='Enter')ytSearch()">
+<button class="btn" onclick="ytSearch()">Buscar</button>
+<button class="btn" onclick="ytPopular()">Em alta</button>
+</div>
+<div id="ytbrowse" style="flex-shrink:0;max-height:300px;overflow-y:auto"></div>
 <div id="ytbox"><div id="ytplayer"></div></div>
 <div class="ctrl" id="yctrl" style="position:relative">
 <div class="scrub"><span id="ytCur">00:00</span><input type="range" id="yseek" value="0" min="0" max="1000"><span id="ytTot">00:00</span></div>
@@ -312,7 +318,7 @@ function setSort(v){sortMode=v;try{localStorage.setItem('jrvideo.sort',v);}catch
 function toggleView(){viewMode=viewMode==='cards'?'list':'cards';try{localStorage.setItem('jrvideo.view',viewMode);}catch(_){}syncViewBtn();renderGrid();}
 function syncViewBtn(){const b=document.getElementById('viewBtn');if(b)b.textContent=viewMode==='cards'?'☰ Lista':'🎬 Cartões';const s=document.getElementById('sortSel');if(s)s.value=sortMode;}
 function durSec(d){if(!d||d==='--:--')return -1;const p=String(d).split(':');if(p.length===2)return (+p[0])*60+(+p[1]);if(p.length===3)return (+p[0])*3600+(+p[1])*60+(+p[2]);return -1;}
-const APP_VERSION='v22';
+const APP_VERSION='v23';
 // Vistos: continua de onde parou + selo VISTO + barra de progresso
 function wkey(v){return v.fid||v.src;}
 function wget(){try{return JSON.parse(localStorage.getItem('jrvideo.watched')||'{}');}catch(_){return {};}}
@@ -667,6 +673,46 @@ e.target.value='';
 hideLoad();
 renderFolders();openFolder('f0');
 });
+// Navegar no YouTube: busca e em alta via API pública (sem chave)
+const YT_API=['https://inv.nadeko.net/api/v1','https://invidious.nerdvpn.de/api/v1','https://iv.melmac.space/api/v1'];
+async function ytFetch(path){
+ let err=null;
+ for(const b of YT_API){
+  try{
+   const r=await fetch(b+path);
+   if(r.ok)return await r.json();
+   err='http '+r.status;
+  }catch(e){err=e;}
+ }
+ throw err||'offline';
+}
+function ytDur(s){s=+s||0;const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=Math.floor(s%60);return h?`${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}`:`${m}:${String(x).padStart(2,'0')}`;}
+async function ytSearch(){
+ const q=(document.getElementById('ytq').value||'').trim();
+ if(!q)return alert('Digite o que buscar.');
+ await ytBrowse('/search?q='+encodeURIComponent(q)+'&type=video&page=1','“'+q+'”');
+}
+async function ytPopular(){await ytBrowse('/popular','Em alta');}
+async function ytBrowse(path,label){
+ const B=document.getElementById('ytbrowse');
+ B.innerHTML='<p style="color:#888;font-size:13px;padding:4px 18px">Buscando '+label+'… Aguarde</p>';
+ try{
+  const rows=await ytFetch(path);
+  const items=(Array.isArray(rows)?rows:(rows.results||[])).filter(r=>r&&(r.videoId||r.video_id));
+  if(!items.length){B.innerHTML='<p style="color:#888;font-size:13px;padding:4px 18px">Nada encontrado.</p>';return;}
+  B.innerHTML='';
+  items.slice(0,20).forEach(r=>{
+   const id=r.videoId||r.video_id;
+   const th=(r.videoThumbnails&&r.videoThumbnails.length?r.videoThumbnails.sort((a,b)=>a.width-b.width)[0].url:'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg');
+   const d=document.createElement('div');d.className='lrow';
+   d.innerHTML=`<div class="e" style="width:96px;height:54px;border-radius:8px;background:#000 center/cover url('${th}')"></div><div class="n">${r.title||id}<br><span style="color:#888;font-weight:400">${r.author||''} • ${r.lengthSeconds?ytDur(r.lengthSeconds):''}</span></div><div class="d">▶</div>`;
+   d.onclick=()=>{if(!ytQ.some(q=>q.id===id)){ytQ.push({id:id,title:r.title||id});ytSave();}ytRender();ytLoad(ytQ.findIndex(q=>q.id===id));document.getElementById('ytbox').scrollIntoView();};
+   B.appendChild(d);
+  });
+ }catch(_){
+  B.innerHTML='<p style="color:#888;font-size:13px;padding:4px 18px">Busca indisponível agora. Cole o link direto acima.</p>';
+ }
+}
 // ABA YOUTUBE: fila + nossos controles + anti-pausa por inatividade
 let ytQ=[];try{ytQ=JSON.parse(localStorage.getItem('jrvideo.ytq')||'[]');}catch(_){ytQ=[];}
 let ytIdx=0,ytP=null,ytReady=false,ytUserPause=false,ytLastAct=0,ytScrub=false,ytBriLv=0;
@@ -686,7 +732,7 @@ function ytRender(){
  const L=document.getElementById('ytlist');L.innerHTML='';
  document.getElementById('ytCount').textContent=`${ytQ.length} na fila`;
  document.getElementById('ytSub').textContent=ytQ.length?`${ytQ.length} na fila`:'Cole link e assista sem pausa por inatividade';
- ytQ.forEach((q,k)=>{const r=document.createElement('div');r.className='lrow'+(k===ytIdx?' sel':'');r.innerHTML=`<div class="ck2">${k===ytIdx?'▶':(k+1)}</div><div class="e">▶️</div><div class="n">youtube.com/watch?v=${q.id}</div><div class="d" onclick="event.stopPropagation();ytDel(${k})" style="color:#FF453A;background:rgba(255,69,58,.14)">✕</div>`;r.onclick=()=>ytLoad(k);L.appendChild(r);});
+  ytQ.forEach((q,k)=>{const r=document.createElement('div');r.className='lrow'+(k===ytIdx?' sel':'');r.innerHTML=`<div class="ck2">${k===ytIdx?'▶':(k+1)}</div><div class="e">▶️</div><div class="n">${q.title||('youtube.com/watch?v='+q.id)}</div><div class="d" onclick="event.stopPropagation();ytDel(${k})" style="color:#FF453A;background:rgba(255,69,58,.14)">✕</div>`;r.onclick=()=>ytLoad(k);L.appendChild(r);});
 }
 function ytAPI(){
  if(window.YT&&window.YT.Player){ytInit();return;}
@@ -747,4 +793,5 @@ bootTrash().then(()=>{hideLoad();}).catch(()=>{hideLoad();});
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
 </body>
 </html>
+
 
