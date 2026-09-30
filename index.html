@@ -152,7 +152,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 .ytov .bar{height:6px;border-radius:4px;background:#2c2c30;margin-top:8px;overflow:hidden}
 .ytov .fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#0A84FF,#5E5CE6)}
 #ytVL{margin-left:-100px}#ytVR{margin-left:100px}
-.ytback{position:absolute;top:8px;left:8px;z-index:7;width:40px;height:40px;border-radius:50%;background:rgba(15,15,18,.65);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:20px;cursor:pointer}
+.ytback{position:absolute;top:calc(env(safe-area-inset-top, 0px) + 10px);left:10px;z-index:20;width:48px;height:48px;border-radius:50%;background:rgba(10,132,255,.85);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:24px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.6)}
 .yzone{position:absolute;top:0;bottom:0;width:96px;z-index:6;touch-action:none}
 #yzL{left:0}#yzR{right:0}
 .yzone::after{position:absolute;top:70px;left:50%;transform:translateX(-50%);font-size:14px;opacity:.5}
@@ -181,7 +181,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <button style="background:#0A84FF;color:#fff" onclick="copyOriginals()">Copiar lista de nomes</button>
 <button style="background:#2c2c2e;color:#fff" onclick="document.getElementById('origSheet').classList.remove('open')">Fechar</button>
 </div>
-<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v28</span></div>
+<div style="padding:16px 20px;color:#666;font-size:12px">App Sandbox • iCloud Drive • Fototeca<br>Total: 6 vídeos mp4 (H.264/HEVC)<br><span style="color:#0A84FF">JrVideo v29</span></div>
 </div>
 
 <!-- TELA B -->
@@ -329,7 +329,7 @@ function setSort(v){sortMode=v;try{localStorage.setItem('jrvideo.sort',v);}catch
 function toggleView(){viewMode=viewMode==='cards'?'list':'cards';try{localStorage.setItem('jrvideo.view',viewMode);}catch(_){}syncViewBtn();renderGrid();}
 function syncViewBtn(){const b=document.getElementById('viewBtn');if(b)b.textContent=viewMode==='cards'?'☰ Lista':'🎬 Cartões';const s=document.getElementById('sortSel');if(s)s.value=sortMode;}
 function durSec(d){if(!d||d==='--:--')return -1;const p=String(d).split(':');if(p.length===2)return (+p[0])*60+(+p[1]);if(p.length===3)return (+p[0])*3600+(+p[1])*60+(+p[2]);return -1;}
-const APP_VERSION='v28';
+const APP_VERSION='v29';
 // Vistos: continua de onde parou + selo VISTO + barra de progresso
 function wkey(v){return v.fid||v.src;}
 function wget(){try{return JSON.parse(localStorage.getItem('jrvideo.watched')||'{}');}catch(_){return {};}}
@@ -762,7 +762,7 @@ function ytAPI(){
 window.onYouTubeIframeAPIReady=function(){ytInit();};
 function ytInit(){
  if(ytP||!document.getElementById('ytplayer'))return;
- ytP=new YT.Player('ytplayer',{width:'100%',height:'100%',playerVars:{playsinline:1,rel:0},events:{onReady:()=>{ytReady=true;if(ytQ.length)ytLoad(ytIdx);},onStateChange:ytState}});
+ ytP=new YT.Player('ytplayer',{width:'100%',height:'100%',playerVars:{playsinline:1,rel:0,fs:0},events:{onReady:()=>{ytReady=true;if(ytQ.length)ytLoad(ytIdx);},onStateChange:ytState}});
 }
 function ytLoad(i){
  if(!ytQ.length)return;
@@ -849,6 +849,7 @@ bootTrash().then(()=>{hideLoad();}).catch(()=>{hideLoad();});
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});}</script>
 </body>
 </html>
+
 
 
 
